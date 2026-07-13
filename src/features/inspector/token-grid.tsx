@@ -25,14 +25,20 @@ const TOKEN_FIELDS: Record<(typeof CATEGORIES)[number]["key"], keyof TokenUsage>
   cacheRead: "cache_read_input_tokens",
 };
 
+// Totals come from the session meta (Rust sums raw lines, including chunks
+// whose content normalizes away), so the grid always equals the session-list
+// numbers. The derived breakdown only shapes the bar's proportions.
 export function TokenGrid({
   tokens,
-  cost,
+  totalCost,
+  costBar,
 }: {
   tokens: TokenUsage;
-  cost: CostBreakdown;
+  totalCost: number;
+  costBar: CostBreakdown;
 }) {
-  const totalCost = cost.input + cost.output + cost.cacheCreation + cost.cacheRead;
+  const barTotal =
+    costBar.input + costBar.output + costBar.cacheCreation + costBar.cacheRead;
 
   return (
     <div className="space-y-2">
@@ -60,13 +66,13 @@ export function TokenGrid({
           {formatCost(totalCost)}
         </span>
       </div>
-      {totalCost > 0 && (
+      {barTotal > 0 && (
         <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
           {CATEGORIES.map(({ key, color }) => (
             <div
               key={key}
               className={color}
-              style={{ width: `${(cost[key] / totalCost) * 100}%` }}
+              style={{ width: `${(costBar[key] / barTotal) * 100}%` }}
             />
           ))}
         </div>

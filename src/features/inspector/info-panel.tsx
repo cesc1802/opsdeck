@@ -47,7 +47,11 @@ export function InfoPanel() {
     <div className="flex h-full flex-col overflow-y-auto p-3">
       <div className="space-y-3">
         <OverviewStrip meta={detail.meta} toolCounts={data.toolCounts} />
-        <TokenGrid tokens={data.tokens} cost={data.cost} />
+        <TokenGrid
+          tokens={detail.meta.tokens}
+          totalCost={detail.meta.estimated_cost_usd}
+          costBar={data.cost}
+        />
         <TasksSection tasks={data.tasks} />
         <Separator />
       </div>
