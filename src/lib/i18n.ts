@@ -45,6 +45,8 @@ const en = {
   "tool.showLess": "Show less",
   "tool.unpairedResult": "Tool result",
 
+  "markdown.image": "image",
+
   "find.placeholder": "Find in session",
   "find.noMatches": "No matches",
   "find.previous": "Previous match",

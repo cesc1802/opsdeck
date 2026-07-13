@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { t } from "@/lib/i18n";
 
 // Scoped element styles instead of the typography plugin: the app renders
 // untrusted session markdown, so keep the surface minimal and predictable.
@@ -22,7 +23,6 @@ const MARKDOWN_CLASSES = [
   "[&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium",
   "[&_td]:border [&_td]:px-2 [&_td]:py-1",
   "[&_hr]:my-3 [&_hr]:border-border",
-  "[&_img]:max-w-full",
 ].join(" ");
 
 export function MarkdownBlock({ text }: { text: string }) {
@@ -35,6 +35,13 @@ export function MarkdownBlock({ text }: { text: string }) {
           a: ({ children }) => (
             <span className="text-primary underline underline-offset-2">
               {children}
+            </span>
+          ),
+          // Remote images would fire outbound requests from untrusted
+          // transcript content; show a placeholder instead of fetching.
+          img: ({ alt }) => (
+            <span className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+              {alt || t("markdown.image")}
             </span>
           ),
         }}
