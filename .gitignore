@@ -96,3 +96,10 @@ external/
 
 # Git worktrees (local development only)
 worktrees/
+
+# Tauri (Rust build output + generated platform projects)
+src-tauri/target/
+src-tauri/gen/
+
+# pnpm lockfile must be committed for reproducible app builds
+!pnpm-lock.yaml
