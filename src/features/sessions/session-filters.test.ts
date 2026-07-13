@@ -4,13 +4,24 @@ import { matchesFilter } from "./session-filters";
 
 function session(partial: Partial<SessionMeta>): SessionMeta {
   return {
-    id: "s1",
+    session_id: "s1",
     project_id: "p1",
-    name: "test",
-    is_active: false,
     started_at: "2026-07-13T10:00:00Z",
     ended_at: null,
     message_count: 0,
+    tokens: {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+    },
+    estimated_cost_usd: 0,
+    models: [],
+    cli_version: null,
+    git_branch: null,
+    cwd: null,
+    preview: "test",
+    is_active: false,
     ...partial,
   };
 }
