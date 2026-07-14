@@ -25,7 +25,7 @@ export function SessionRow({ session, selected, onSelect }: SessionRowProps) {
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full flex-col gap-1 rounded-md px-2 py-2 text-left hover:bg-accent",
+        "dash-focus-ring flex w-full flex-col gap-1 rounded-md px-2 py-2 text-left hover:bg-accent",
         selected && "bg-accent",
       )}
     >
@@ -45,13 +45,13 @@ export function SessionRow({ session, selected, onSelect }: SessionRowProps) {
           {relativeTime(session.ended_at ?? session.started_at)}
         </span>
         {tokens > 0 && (
-          <span className="shrink-0 tabular-nums">
+          <span className="mono shrink-0 tabular-nums">
             {formatTokens(tokens)} {t("message.tokens")}
           </span>
         )}
         {session.estimated_cost_usd > 0 && (
           <span
-            className="flex shrink-0 items-center gap-0.5 tabular-nums"
+            className="mono flex shrink-0 items-center gap-0.5 tabular-nums"
             title={t("cost.estimated")}
           >
             <Coins className="size-3" />

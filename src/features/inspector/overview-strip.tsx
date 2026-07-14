@@ -7,7 +7,7 @@ function ContextRow({ labelKey, value }: { labelKey: I18nKey; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 text-xs">
       <span className="shrink-0 text-muted-foreground">{t(labelKey)}</span>
-      <span className="min-w-0 truncate text-right font-medium" title={value}>
+      <span className="mono min-w-0 truncate text-right font-medium" title={value}>
         {value}
       </span>
     </div>

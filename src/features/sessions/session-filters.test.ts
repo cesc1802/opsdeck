@@ -17,6 +17,7 @@ function session(partial: Partial<SessionMeta>): SessionMeta {
     },
     estimated_cost_usd: 0,
     models: [],
+    model_tokens: [],
     cli_version: null,
     git_branch: null,
     cwd: null,

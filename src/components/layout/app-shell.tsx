@@ -10,9 +10,15 @@ interface AppShellProps {
   sidebar: ReactNode;
   main: ReactNode;
   infoPanel: ReactNode;
+  headerActions?: ReactNode;
 }
 
-export function AppShell({ sidebar, main, infoPanel }: AppShellProps) {
+export function AppShell({
+  sidebar,
+  main,
+  infoPanel,
+  headerActions,
+}: AppShellProps) {
   const [infoPanelOpen, setInfoPanelOpen] = useLocalStorage(
     "opsdeck.infoPanelOpen",
     true,
@@ -25,6 +31,7 @@ export function AppShell({ sidebar, main, infoPanel }: AppShellProps) {
           {t("app.name")}
         </span>
         <div className="flex-1" />
+        {headerActions}
         <Button
           variant="ghost"
           size="icon"

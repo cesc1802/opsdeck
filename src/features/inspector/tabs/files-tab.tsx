@@ -78,7 +78,7 @@ export function FilesTab({ files }: { files: FileArtifact[] }) {
               className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
             >
               <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{basename}</span>
+              <span className="mono min-w-0 flex-1 truncate">{basename}</span>
               {file.added > 0 && (
                 <span className="shrink-0 tabular-nums text-emerald-600 dark:text-emerald-500">
                   +{file.added}

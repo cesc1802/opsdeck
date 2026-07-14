@@ -47,12 +47,12 @@ export function TokenGrid({
       </div>
       <div className="grid grid-cols-2 gap-2">
         {CATEGORIES.map(({ key, labelKey, color }) => (
-          <div key={key} className="rounded-md border px-2 py-1.5">
+          <div key={key} className="dash-panel-muted px-2 py-1.5">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className={`size-2 rounded-full ${color}`} />
               {t(labelKey)}
             </div>
-            <div className="text-sm font-medium tabular-nums">
+            <div className="mono text-sm font-medium tabular-nums">
               {formatTokens(tokens[TOKEN_FIELDS[key]])}
             </div>
           </div>
@@ -62,7 +62,7 @@ export function TokenGrid({
         <span>
           {t("inspector.cost.title")} ({t("cost.estimated")})
         </span>
-        <span className="font-medium tabular-nums text-foreground">
+        <span className="mono font-medium tabular-nums text-foreground">
           {formatCost(totalCost)}
         </span>
       </div>

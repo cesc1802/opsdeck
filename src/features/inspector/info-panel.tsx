@@ -6,6 +6,7 @@ import { fetchPricing, fetchSession } from "@/lib/ipc";
 import { queryKeys } from "@/lib/query-keys";
 import { t } from "@/lib/i18n";
 import { useSelection } from "@/hooks/selection-context";
+import { LiveChatInspector } from "@/features/chat/live-chat-inspector";
 import { deriveInspector } from "./lib/derive";
 import { OverviewStrip } from "./overview-strip";
 import { TokenGrid } from "./token-grid";
@@ -15,8 +16,9 @@ import { AuditTab } from "./tabs/audit-tab";
 import { TasksSection } from "./tabs/tasks-section";
 
 export function InfoPanel() {
-  const { projectId, sessionId } = useSelection();
-  const enabled = projectId !== null && sessionId !== null;
+  const { projectId, sessionId, mode } = useSelection();
+  const enabled =
+    mode.kind === "session" && projectId !== null && sessionId !== null;
 
   // Same query key as the message view — served from cache, no second parse.
   const { data: detail } = useQuery({
@@ -34,6 +36,10 @@ export function InfoPanel() {
     () => (detail ? deriveInspector(detail.messages, pricing) : null),
     [detail, pricing],
   );
+
+  if (mode.kind === "chat") {
+    return <LiveChatInspector />;
+  }
 
   if (!detail || !data) {
     return (

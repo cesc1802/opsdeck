@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Radio, RefreshCw, TriangleAlert } from "lucide-react";
+import { GitFork, Play, Radio, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSession } from "@/lib/ipc";
@@ -11,6 +11,7 @@ import { useSelection } from "@/hooks/selection-context";
 import { useLiveRefresh } from "@/hooks/use-live-refresh";
 import { useMessageJump } from "@/hooks/message-jump-context";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "./export-menu";
 import { FindBar } from "./find-bar";
 import { MessageItem } from "./message-item";
 import { useFindInSession } from "./use-find-in-session";
@@ -19,7 +20,7 @@ export function MessageView() {
   // TanStack Virtual returns unmemoizable functions; opt this component out
   // of React Compiler memoization instead of risking stale virtual items.
   "use no memo";
-  const { projectId, sessionId } = useSelection();
+  const { projectId, sessionId, openNewChat } = useSelection();
   const { live, setLive, syncNow } = useLiveRefresh();
 
   const enabled = projectId !== null && sessionId !== null;
@@ -87,6 +88,45 @@ export function MessageView() {
             <TriangleAlert className="size-3.5" />
             {detail.malformed_lines}
           </span>
+        )}
+        {detail && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
+              onClick={() =>
+                openNewChat({
+                  resume_session_id: detail.meta.session_id,
+                  cwd: detail.meta.cwd ?? "",
+                })
+              }
+              title={t("chat.resume.tooltip")}
+            >
+              <Play className="size-3.5" />
+              {t("chat.resume.label")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
+              onClick={() =>
+                openNewChat({
+                  resume_session_id: detail.meta.session_id,
+                  fork_session: true,
+                  cwd: detail.meta.cwd ?? "",
+                })
+              }
+              title={t("chat.fork.tooltip")}
+            >
+              <GitFork className="size-3.5" />
+              {t("chat.fork.label")}
+            </Button>
+            <ExportMenu
+              projectId={detail.meta.project_id}
+              sessionId={detail.meta.session_id}
+            />
+          </>
         )}
         <Button
           variant={live ? "secondary" : "ghost"}

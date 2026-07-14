@@ -39,6 +39,7 @@ export function LiveRefreshProvider({ children }: { children: ReactNode }) {
     const unlisten = events.sessionsChanged.listen(({ payload }) => {
       if (!liveRef.current) return;
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.sessions(payload.project_id),
       });
