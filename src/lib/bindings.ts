@@ -32,6 +32,196 @@ async getSession(projectId: string, sessionId: string) : Promise<Result<SessionD
 },
 async getPricing() : Promise<PricingTable> {
     return await TAURI_INVOKE("get_pricing");
+},
+/**
+ * Workspace-wide stats folded from the same per-session metas the list
+ * views read (served from the mtime+size cache; only changed files parse).
+ */
+async getStats() : Promise<Result<WorkspaceStats, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_stats") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Render a session for export. The read path is identical to `get_session`
+ * — the source JSONL is never touched.
+ */
+async exportSession(projectId: string, sessionId: string, format: ExportFormat, redact: boolean) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_session", { projectId, sessionId, format, redact }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Write rendered export content to a user-picked path (the dialog plugin
+ * on the frontend supplies it).
+ */
+async writeExport(path: string, content: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("write_export", { path, content }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createJob(options: LaunchOptions) : Promise<Result<JobSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_job", { options }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listJobs() : Promise<Result<JobSummary[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_jobs") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getJob(jobId: string) : Promise<Result<JobSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_job", { jobId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Replay the buffered events over the channel, then keep it registered for
+ * the live tail. The client dedupes by `seq`.
+ */
+async attachJob(jobId: string, channel: TAURI_CHANNEL<JobEvent>) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("attach_job", { jobId, channel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async sendUserMessage(jobId: string, text: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("send_user_message", { jobId, text }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async interruptJob(jobId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("interrupt_job", { jobId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopJob(jobId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_job", { jobId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Static form metadata: models, efforts, permission modes, presets.
+ */
+async getChatConfig() : Promise<ChatConfig> {
+    return await TAURI_INVOKE("get_chat_config");
+},
+/**
+ * True when the (possibly `~`-prefixed) path is an existing directory.
+ */
+async validateDir(path: string) : Promise<boolean> {
+    return await TAURI_INVOKE("validate_dir", { path });
+},
+/**
+ * Field-level validation for the New Chat form, without launching anything.
+ */
+async validateLaunchOptions(options: LaunchOptions) : Promise<FieldError[]> {
+    return await TAURI_INVOKE("validate_launch_options", { options });
+},
+async listProfiles() : Promise<Result<ChatProfile[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_profiles") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async saveProfile(name: string, prevName: string | null, options: LaunchOptions, hookBuilder: HookRow[]) : Promise<Result<ChatProfile, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_profile", { name, prevName, options, hookBuilder }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteProfile(name: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_profile", { name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Write the interchange payload to a user-picked path (dialog plugin on the
+ * frontend supplies the path).
+ */
+async exportProfiles(path: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_profiles", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Read and merge an interchange payload; returns how many profiles were
+ * imported.
+ */
+async importProfiles(path: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("import_profiles", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async runHealthChecks() : Promise<Result<HealthCheck[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("run_health_checks") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Raw JSON from `claude agents --json --all`; the UI parses and renders each
+ * agent in a mono disclosure.
+ */
+async listBackgroundAgents() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_background_agents") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async launchBackgroundAgent(prompt: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("launch_background_agent", { prompt }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -39,8 +229,10 @@ async getPricing() : Promise<PricingTable> {
 
 
 export const events = __makeEvents__<{
+jobsChanged: JobsChanged,
 sessionsChanged: SessionsChanged
 }>({
+jobsChanged: "jobs-changed",
 sessionsChanged: "sessions-changed"
 })
 
@@ -55,7 +247,77 @@ export type Block = { type: "text"; text: string } | { type: "thinking"; thinkin
  * A tool result whose tool_use was never seen (kept unpaired).
  */
 { type: "tool_result"; tool_use_id: string; is_error: boolean; content: string }
+/**
+ * Static vocabulary served to the UI so form options never drift from the
+ * backend validators.
+ */
+export type ChatConfig = { model_suggestions: string[]; efforts: string[]; permission_modes: string[]; setting_sources: string[]; hook_events: string[]; presets: PermissionPreset[] }
+export type ChatProfile = { name: string; options: LaunchOptions; 
+/**
+ * Hook builder rows kept alongside the compiled `options.hooks_json` so
+ * editing never loses row structure.
+ */
+hook_builder: HookRow[]; created_at_ms: number; updated_at_ms: number }
+export type ExportFormat = "md" | "json" | "html"
+export type FieldError = { field: string; message: string }
+export type HealthCheck = { name: string; ok: boolean; detail: string; duration_ms: number }
+/**
+ * One row from the hook builder. Validate-only: commands are never executed
+ * by OpsDeck, only compiled into the temp settings file.
+ */
+export type HookRow = { event: string; matcher: string | null; command: string; timeout: number; enabled: boolean }
+/**
+ * Wire event delivered over an attach channel: buffered replay first, then
+ * live tail. Clients dedupe by `seq`.
+ */
+export type JobEvent = { seq: number; payload: JobEventPayload }
+/**
+ * Normalized app-side event stream. The CLI's stream-json lines are bridged
+ * into this enum; unknown CLI event types pass through as `Notice` so newer
+ * CLI versions degrade gracefully instead of breaking the chat.
+ */
+export type JobEventPayload = { type: "sessionStarted"; data: { session_id: string; model: string; cwd: string; tools: string[] } } | 
+/**
+ * A message the user sent to this job (initial prompt or follow-up).
+ * Pushed locally when writing to stdin — the CLI does not echo it — so
+ * buffer replay reconstructs both sides of the conversation.
+ */
+{ type: "userMessage"; data: { text: string } } | { type: "textDelta"; data: { text: string } } | { type: "thinkingDelta"; data: { text: string } } | { type: "toolUseStart"; data: { tool_id: string; name: string } } | { type: "toolUse"; data: { tool_id: string; name: string; input: JsonValue } } | { type: "toolResult"; data: { tool_id: string; is_error: boolean; content: string } } | { type: "hookEvent"; data: { raw: JsonValue } } | { type: "notice"; data: { message: string } } | { type: "stderr"; data: { line: string } } | { type: "turnResult"; data: { subtype: string; is_error: boolean; cost_usd: number | null; usage: JsonValue | null; duration_ms: number | null; num_turns: number | null } } | { type: "processExit"; data: { code: number | null } }
+export type JobStatus = "starting" | "running" | "idle" | "completed" | "stopped" | "interrupted" | "error"
+export type JobSummary = { job_id: string; session_id: string | null; pid: number | null; status: JobStatus; cwd: string; name: string | null; model: string | null; effort: string | null; permission_mode: string | null; created_at_ms: number; 
+/**
+ * CLI-reported cumulative session cost (`reported`, not estimated).
+ */
+cost_usd: number | null; usage: JsonValue | null }
+/**
+ * Emitted whenever the registry or any job summary changes; the UI refetches
+ * `list_jobs` instead of polling.
+ */
+export type JobsChanged = { job_id: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+/**
+ * Wire contract between the New Chat form, saved profiles, and the job
+ * engine. All fields optional except cwd + prompt; lists tolerate comma or
+ * newline separated single entries (normalized before validation).
+ */
+export type LaunchOptions = { name: string | null; cwd: string; 
+/**
+ * First user message, sent over stdin after spawn (never a CLI arg).
+ */
+prompt: string; model: string | null; effort: string | null; permission_mode: string | null; max_budget_usd: number | null; worktree: boolean; worktree_name: string | null; resume_session_id: string | null; fork_session: boolean; allowed_tools: string[]; disallowed_tools: string[]; mcp_configs: string[]; strict_mcp_config: boolean; plugin_dirs: string[]; 
+/**
+ * JSON object: agent name -> { description, prompt, ... }.
+ */
+agents_json: string | null; 
+/**
+ * JSON array of hook rows: { event, matcher?, command, timeout, enabled }.
+ */
+hooks_json: string | null; setting_sources: string[]; append_system_prompt: string | null; 
+/**
+ * Raw settings JSON object (power-user escape hatch), merged with hooks
+ * into the temp `--settings` file.
+ */
+settings_json: string | null }
 export type Message = { 
 /**
  * Line uuid; None when the CLI omitted it.
@@ -70,16 +332,29 @@ message_id: string | null; role: string; timestamp: string | null; model: string
  */
 export type ModelPricing = { model_match: string; input: number; output: number; cache_creation: number; cache_read: number }
 /**
+ * Total tokens attributed to one model within a session. Usage entries
+ * without a model id land in the "unknown" bucket.
+ */
+export type ModelTokens = { model: string; total_tokens: number }
+/**
+ * One model's slice of workspace tokens; `share` is 0..=1 of the total.
+ */
+export type ModelUsage = { model: string; total_tokens: number; share: number }
+export type PermissionPreset = { id: string; label: string; permission_mode: string; disallowed_tools: string[] }
+/**
  * Hardcoded approximate rates. Labeled estimated: rates drift and are not
  * fetched live; the UI must present costs as estimates.
  */
 export type PricingTable = { rates: ModelPricing[]; default_model_match: string; disclaimer: string }
+export type ProjectStats = { project_id: string; name: string; session_count: number; message_count: number; total_tokens: number; estimated_cost_usd: number }
 export type ProjectSummary = { project_id: string; name: string; path: string; session_count: number; active_count: number }
 export type SessionDetail = { meta: SessionMeta; messages: Message[]; malformed_lines: number }
-export type SessionMeta = { session_id: string; project_id: string; started_at: string | null; ended_at: string | null; message_count: number; tokens: TokenUsage; estimated_cost_usd: number; models: string[]; cli_version: string | null; git_branch: string | null; cwd: string | null; preview: string; is_active: boolean }
+export type SessionMeta = { session_id: string; project_id: string; started_at: string | null; ended_at: string | null; message_count: number; tokens: TokenUsage; estimated_cost_usd: number; models: string[]; model_tokens: ModelTokens[]; cli_version: string | null; git_branch: string | null; cwd: string | null; preview: string; is_active: boolean }
 export type SessionsChanged = { kind: string; project_id: string; session_id: string | null }
 export type TokenUsage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens: number; cache_read_input_tokens: number }
 export type ToolResultInfo = { is_error: boolean; content: string }
+export type WorkspaceStats = { totals: WorkspaceTotals; projects: ProjectStats[]; models: ModelUsage[] }
+export type WorkspaceTotals = { session_count: number; message_count: number; tokens: TokenUsage; estimated_cost_usd: number }
 
 /** tauri-specta globals **/
 
