@@ -229,19 +229,19 @@ pub async fn list_sessions(
     Ok(sessions)
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn get_session(
-    project_id: String,
-    session_id: String,
-    state: tauri::State<'_, AppState>,
+/// Full read+parse for one session, shared by the viewer and the exporter.
+/// Also refreshes the meta cache entry as a side effect.
+fn load_session_detail(
+    state: &AppState,
+    project_id: &str,
+    session_id: &str,
 ) -> Result<SessionDetail, String> {
-    validate_id(&project_id)?;
-    validate_id(&session_id)?;
+    validate_id(project_id)?;
+    validate_id(session_id)?;
     let Some(root) = projects_root() else {
         return Err("could not resolve home directory".into());
     };
-    let path = root.join(&project_id).join(format!("{session_id}.jsonl"));
+    let path = root.join(project_id).join(format!("{session_id}.jsonl"));
     // Stat before reading: if the file grows during the read, the cache entry
     // carries the pre-read mtime/size and the next stat invalidates it.
     let stat = file_stat(&path);
@@ -250,8 +250,8 @@ pub async fn get_session(
     let table = pricing_table();
     let parsed = parser::parse_session(&text);
     let meta = parser::meta::derive_meta(
-        &project_id,
-        &session_id,
+        project_id,
+        session_id,
         &parsed.raw_lines,
         &parsed.messages,
         stat.map(|(mtime, _)| mtime),
@@ -280,8 +280,108 @@ pub async fn get_session(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_session(
+    project_id: String,
+    session_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<SessionDetail, String> {
+    load_session_detail(&state, &project_id, &session_id)
+}
+
+/// Render a session for export. The read path is identical to `get_session`
+/// — the source JSONL is never touched.
+#[tauri::command]
+#[specta::specta]
+pub async fn export_session(
+    project_id: String,
+    session_id: String,
+    format: crate::export::ExportFormat,
+    redact: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let mut detail = load_session_detail(&state, &project_id, &session_id)?;
+    if redact {
+        crate::export::redact::redact_detail(&mut detail);
+    }
+    crate::export::render(&detail, format)
+}
+
+/// Refuses ~/.claude, symlink targets, and missing parent directories,
+/// then writes. The symlink check closes the one hole the tree guard
+/// leaves: it canonicalizes the parent but re-joins the leaf name, so a
+/// pre-existing symlink at the target itself would otherwise be followed
+/// wherever it points.
+fn write_export_impl(path: &str, content: &str) -> Result<(), String> {
+    let target = crate::jobs::options::expand_path(path);
+    crate::profiles::guard_claude_tree(&target)?;
+    let is_symlink = target
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false);
+    if is_symlink {
+        return Err(format!("refusing to write through a symlink: {path}"));
+    }
+    match target.parent() {
+        Some(parent) if parent.is_dir() => {}
+        _ => return Err(format!("parent directory does not exist: {path}")),
+    }
+    fs::write(&target, content).map_err(|e| format!("cannot write {path}: {e}"))
+}
+
+/// Write rendered export content to a user-picked path (the dialog plugin
+/// on the frontend supplies it).
+#[tauri::command]
+#[specta::specta]
+pub async fn write_export(path: String, content: String) -> Result<(), String> {
+    write_export_impl(&path, &content)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_pricing() -> PricingTable {
     pricing_table()
+}
+
+/// Workspace-wide stats folded from the same per-session metas the list
+/// views read (served from the mtime+size cache; only changed files parse).
+#[tauri::command]
+#[specta::specta]
+pub async fn get_stats(
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::stats::WorkspaceStats, String> {
+    let Some(root) = projects_root() else {
+        return Err("could not resolve home directory".into());
+    };
+    if !root.is_dir() {
+        return Ok(crate::stats::WorkspaceStats::default());
+    }
+
+    let table = pricing_table();
+    let mut inputs = Vec::new();
+    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.flatten() {
+        let dir = entry.path();
+        if !dir.is_dir() {
+            continue;
+        }
+        let Some(project_id) = dir.file_name().and_then(|n| n.to_str()).map(str::to_string)
+        else {
+            continue;
+        };
+        let sessions: Vec<SessionMeta> = session_files(&dir)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|path| meta_for_file(&state, &table, &project_id, path))
+            .collect();
+        if sessions.is_empty() {
+            continue;
+        }
+        inputs.push(crate::stats::ProjectSessions {
+            name: friendly_name(&state, &project_id, &dir),
+            project_id,
+            sessions,
+        });
+    }
+    Ok(crate::stats::aggregate(&inputs))
 }
 
 #[cfg(test)]
@@ -295,5 +395,49 @@ mod tests {
         }
         assert!(validate_id("-Users-x-Documents-proj").is_ok());
         assert!(validate_id("11111111-2222-3333-4444-555555555555").is_ok());
+    }
+
+    #[test]
+    fn export_refuses_to_write_under_claude_tree() {
+        let err = write_export_impl("~/.claude/settings.json", "x").unwrap_err();
+        assert!(err.contains("~/.claude"), "unexpected error: {err}");
+        let err = write_export_impl("~/.claude/projects/p/s.jsonl", "x").unwrap_err();
+        assert!(err.contains("~/.claude"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn export_refuses_missing_parent_directories() {
+        let dir = std::env::temp_dir().join("opsdeck-export-test-missing");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("nested").join("out.md");
+        let err = write_export_impl(path.to_str().unwrap(), "x").unwrap_err();
+        assert!(err.contains("parent directory"), "unexpected error: {err}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn export_refuses_symlink_targets() {
+        let dir = std::env::temp_dir().join("opsdeck-export-test-symlink");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let real = dir.join("real.md");
+        std::fs::write(&real, "original").unwrap();
+        let link = dir.join("link.md");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let err = write_export_impl(link.to_str().unwrap(), "x").unwrap_err();
+        assert!(err.contains("symlink"), "unexpected error: {err}");
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "original");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_writes_to_an_ordinary_path() {
+        let dir = std::env::temp_dir().join("opsdeck-export-test-ok");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("out.md");
+        write_export_impl(path.to_str().unwrap(), "# hello").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "# hello");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

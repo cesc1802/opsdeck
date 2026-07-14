@@ -1,0 +1,17 @@
+{"type":"system","subtype":"init","cwd":"/tmp/demo","session_id":"ses_123","tools":["Bash","Read"],"model":"claude-sonnet-5","permissionMode":"acceptEdits","apiKeySource":"none"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_1","role":"assistant"}}}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me look at the files."}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"I'll list the "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"directory."}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1}}
+{"type":"stream_event","event":{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_01","name":"Bash","input":{}}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":2}}
+{"type":"stream_event","event":{"type":"message_stop"}}
+{"type":"assistant","message":{"id":"msg_1","role":"assistant","content":[{"type":"text","text":"I'll list the directory."},{"type":"tool_use","id":"toolu_01","name":"Bash","input":{"command":"ls","description":"List files"}}]},"session_id":"ses_123"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01","is_error":false,"content":[{"type":"text","text":"file-a\nfile-b"}]}]},"session_id":"ses_123"}
+{"type":"hook_event","hook_event_name":"PostToolUse","tool_name":"Bash","session_id":"ses_123"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":5210.5,"num_turns":2,"result":"Done.","session_id":"ses_123","total_cost_usd":0.0421,"usage":{"input_tokens":12,"output_tokens":345,"cache_creation_input_tokens":100,"cache_read_input_tokens":2000}}
+{"type":"mystery_event","x":1}

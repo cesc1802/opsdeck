@@ -21,6 +21,14 @@ pub fn is_active_mtime(mtime: Option<SystemTime>) -> bool {
 
 const PREVIEW_MAX_CHARS: usize = 200;
 
+/// Total tokens attributed to one model within a session. Usage entries
+/// without a model id land in the "unknown" bucket.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct ModelTokens {
+    pub model: String,
+    pub total_tokens: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct SessionMeta {
     pub session_id: String,
@@ -31,6 +39,7 @@ pub struct SessionMeta {
     pub tokens: TokenUsage,
     pub estimated_cost_usd: f64,
     pub models: Vec<String>,
+    pub model_tokens: Vec<ModelTokens>,
     pub cli_version: Option<String>,
     pub git_branch: Option<String>,
     pub cwd: Option<String>,
@@ -41,8 +50,12 @@ pub struct SessionMeta {
 /// Sum usage across raw lines (not normalized messages, so a turn whose last
 /// streamed chunk normalizes away still counts), deduplicating chunks that
 /// share one API message id (each chunk repeats the turn's cumulative usage —
-/// last chunk wins). Cost is computed per entry with that entry's model.
-fn total_usage_and_cost(lines: &[RawLine], table: &PricingTable) -> (TokenUsage, f64) {
+/// last chunk wins). Cost is computed per entry with that entry's model, and
+/// tokens are also folded per model for distribution views.
+fn total_usage_and_cost(
+    lines: &[RawLine],
+    table: &PricingTable,
+) -> (TokenUsage, f64, Vec<ModelTokens>) {
     // message_id -> (model, usage); entries without an id are summed directly.
     let mut by_id: HashMap<&str, (Option<&str>, TokenUsage)> = HashMap::new();
     let mut anonymous: Vec<(Option<&str>, TokenUsage)> = Vec::new();
@@ -64,11 +77,26 @@ fn total_usage_and_cost(lines: &[RawLine], table: &PricingTable) -> (TokenUsage,
 
     let mut totals = TokenUsage::default();
     let mut cost = 0.0;
+    let mut per_model: HashMap<&str, u64> = HashMap::new();
     for (model, usage) in by_id.values().chain(anonymous.iter()) {
         totals.add(usage);
         cost += cost_usd(table, model.unwrap_or_default(), usage);
+        *per_model.entry(model.unwrap_or("unknown")).or_default() += usage.total();
     }
-    (totals, cost)
+    let mut model_tokens: Vec<ModelTokens> = per_model
+        .into_iter()
+        .map(|(model, total_tokens)| ModelTokens {
+            model: model.to_string(),
+            total_tokens,
+        })
+        .collect();
+    // Largest first; name breaks ties so output is deterministic.
+    model_tokens.sort_by(|a, b| {
+        b.total_tokens
+            .cmp(&a.total_tokens)
+            .then_with(|| a.model.cmp(&b.model))
+    });
+    (totals, cost, model_tokens)
 }
 
 fn distinct_models(lines: &[RawLine]) -> Vec<String> {
@@ -184,7 +212,7 @@ pub fn derive_meta(
     mtime: Option<SystemTime>,
     table: &PricingTable,
 ) -> SessionMeta {
-    let (tokens, estimated_cost_usd) = total_usage_and_cost(lines, table);
+    let (tokens, estimated_cost_usd, model_tokens) = total_usage_and_cost(lines, table);
     let is_active = is_active_mtime(mtime);
 
     SessionMeta {
@@ -196,6 +224,7 @@ pub fn derive_meta(
         tokens,
         estimated_cost_usd,
         models: distinct_models(lines),
+        model_tokens,
         cli_version: first_some(lines, |l| l.version.as_ref()),
         git_branch: first_some(lines, |l| l.git_branch.as_ref()),
         cwd: first_some(lines, |l| l.cwd.as_ref()),
