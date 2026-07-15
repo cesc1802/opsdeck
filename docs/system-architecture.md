@@ -2,7 +2,11 @@
 
 ## Overview
 
-OpsDeck is a Tauri 2 desktop application that provides a read-only viewer for Claude Code session records stored locally in `~/.claude/projects/`. The system is built around a strict read-only constraint: the app never modifies Claude CLI data.
+OpsDeck is a Tauri 2 desktop application that combines:
+- **Session viewer**: Read-only exploration of Claude Code session records stored in `~/.claude/projects/`
+- **Live chat**: Interactive chat with the `claude` CLI, slash command autocomplete, and job lifecycle management
+
+The viewer maintains strict read-only access to session files; the chat feature only spawns child processes and manages job state, never modifying `~/.claude` data.
 
 ```
 ┌─────────────────────────┐
@@ -34,7 +38,7 @@ OpsDeck is a Tauri 2 desktop application that provides a read-only viewer for Cl
 
 ### Command Handlers (`src-tauri/src/commands.rs`)
 
-Four Tauri commands expose session data:
+Tauri commands expose session data and chat functionality:
 
 | Command | Parameters | Returns | Purpose |
 |---------|-----------|---------|---------|
@@ -42,6 +46,7 @@ Four Tauri commands expose session data:
 | `list_sessions(projectId)` | project_id: string | `SessionMeta[]` | List sessions in a project with metadata (timestamps, token usage, models) |
 | `get_session(projectId, sessionId)` | project_id, session_id: strings | `SessionDetail` | Fetch full session: metadata + parsed messages + malformed line count |
 | `get_pricing()` | — | `PricingTable` | Hardcoded model pricing rates (input/output/cache tokens) |
+| `list_completions(cwd)` | cwd: string | `CompletionCatalog` | Scan `~/.claude` and `<cwd>/.claude` for slash-invocable commands, skills, and agents (used by composer before session init) |
 
 **Type Safety**: All command parameters and return types are defined in Rust with `#[derive(specta::Type)]`. The build process generates `src/lib/bindings.ts` automatically—no manual DTO mirrors.
 
@@ -80,6 +85,27 @@ Four modules handle parsing:
 
 4. **mod.rs**: Entry point; orchestrates parsing pipeline
 
+### Completions Scanning (`src-tauri/src/jobs/completions.rs`)
+
+Discovers slash-invocable names for the chat composer's autocomplete feature:
+
+- **scan(cwd)**: Scan user (`~/.claude`) and project (`<cwd>/.claude`) scopes
+  - Commands: `commands/*.md` with nesting support (`commands/ck/plan.md` → `ck:plan`)
+  - Skills: `skills/*/SKILL.md` (directory must contain SKILL.md)
+  - Agents: `agents/*.md` (markdown files)
+- Deduplicates across scopes; sorts and returns `CompletionCatalog { commands, agents }`
+- Called by `list_completions` command before the CLI's init event arrives (instant autocomplete)
+
+### Job Events (`src-tauri/src/jobs/events.rs`)
+
+Bridges CLI stream-json events to normalized `JobEventPayload` enum:
+
+- **SessionStarted**: Extended with `slash_commands: Vec<String>` and `agents: Vec<String>` from CLI's init payload (authoritative list; overrides filesystem scan)
+- **UserMessage, TextDelta, ThinkingDelta**: Streaming message content
+- **ToolUseStart, ToolUse, ToolResult**: Tool invocation and results
+- **TurnResult**: Cost, token usage, duration for completed turns
+- **Notice, Stderr**: Fallback for unparseable or unknown CLI events
+
 ### File Watcher & Events (`src-tauri/src/watcher.rs`)
 
 - Uses `notify-debouncer-mini` to listen for file changes in `~/.claude/projects/`
@@ -87,6 +113,18 @@ Four modules handle parsing:
 - Emits `sessions-changed` Tauri event when `.jsonl` files are added/modified
 - Event payload: `{ kind: string, project_id: string, session_id: string | null }`
 - Frontend auto-invalidates TanStack Query cache on event; UI refetches
+
+### Job Management (`src-tauri/src/jobs/mod.rs`)
+
+Lifecycle and event streaming for live chat sessions:
+
+- **spawn(LaunchOptions)**: Spawn `claude` CLI with piped stdin/stdout; returns `Job` handle
+  - `prompt` field (can be empty): seeded first message sent over stdin if non-empty
+  - Empty prompt triggers promptless mode; user sends first message via composer
+- **events()**: Stream `JobEventPayload` events from CLI's stream-json output
+  - Includes SessionStarted event with session_id, model, tools, slash_commands, agents
+  - Persists events to `~/.claude/projects/<project>/<session>.jsonl` for history
+- **interrupt/resume/pause**: Control job execution mid-turn
 
 ### Application State (`src-tauri/src/state.rs`)
 
@@ -160,6 +198,20 @@ Rates are **approximations** (labeled "estimated" in UI) and drift over time. No
 - **find-bar.tsx**: Cmd+F search within session (client-side only, no backend index)
 - **tool-meta.ts**: Extract token usage from tool_result blocks
 - **blocks/**: Specialized renderers for text, thinking, tool_use, tool_result, markdown, terminal output
+
+#### Chat (`src/features/chat/`)
+- **chat-composer.tsx**: Textarea input with slash completion popup
+  - Active while job status is `starting` or `running` (composable while idle or mid-turn)
+  - Keyboard navigation for completions (↑↓/Enter/Tab/Esc)
+  - Calls `sendUserMessage()` on Enter; `interruptJob()` when job is running
+- **slash-completion.ts**: Pure logic for:
+  - Slash token detection (only at message start or after whitespace)
+  - Prefix filtering (case-insensitive)
+  - Catalog merging (filesystem scan + SessionStarted event lists)
+  - Token replacement with trailing space
+- **job-display.tsx**: Status indicator and lifecycle controls
+- **new-chat-form.tsx**: Launch form with project picker (no Prompt field; promptless by default)
+- **chat-timeline-reducer.ts**: Event accumulator and message buffer
 
 #### Inspector (`src/features/inspector/`)
 - **info-panel.tsx**: Collapsible right panel with tabbed sections
@@ -237,7 +289,21 @@ Benefits:
 
 ## Data Flow Examples
 
-### User Opens Session
+### User Starts New Promptless Chat
+
+1. Frontend: User clicks "New Chat" → selects project (no Prompt field)
+2. Frontend calls `startJob(LaunchOptions { cwd, prompt: "", model, ... })`
+3. Tauri spawns `claude` CLI with stdin/stdout piping
+4. CLI outputs first line: `{"type":"system","subtype":"init","session_id":"ses_...","slash_commands":["cook","review"],"agents":["debugger"]}`
+5. Rust parses and emits `JobEventPayload::SessionStarted { session_id, slash_commands, agents, ... }`
+6. Frontend receives event; composer becomes active (status="starting")
+7. Composer calls `fetchCompletions(cwd)` → list_completions scans filesystem
+8. User types `/c` → completion popup shows "cook" and "compact" (merged from both sources)
+9. User types first message → calls `sendUserMessage(jobId, text)`
+10. CLI receives message over stdin; processes and streams output
+11. Rust bridges events (TextDelta, ToolUse, etc.) to frontend; messages accumulate in UI
+
+### User Opens Existing Session
 
 1. Frontend: `await getSession(projectId, sessionId)`
 2. Tauri (Rust): `commands::get_session(projectId, sessionId)`
@@ -319,6 +385,18 @@ Benefits:
 - Dedupe by message_id: last-write-wins to handle out-of-order streamed chunks
 - Early return on validation failure (malformed lines don't block rest of session)
 
+## Implemented Features (Recent Phases)
+
+### Job Execution & Live Chat (Implemented)
+
+- **Promptless chat**: New Chat form spawns `claude` CLI with empty prompt; user types first message in composer
+- **Slash autocomplete**: Composer scans `~/.claude` and `<cwd>/.claude` for commands, skills, agents
+  - Instant results from filesystem (before CLI init event)
+  - Authoritative list from SessionStarted event (CLI's own commands)
+  - Keyboard-navigable popup (↑↓/Enter/Esc)
+- **Job lifecycle**: Spawn, send messages, interrupt, resume
+- **Event streaming**: Real-time display of model output, tool calls, results
+
 ## Deferred Architectural Decisions (Future Phases)
 
 ### Overlay Database (SQLite)
@@ -336,14 +414,6 @@ Planned secondary index for keyword search:
 - FTS5 index built during import
 - Saved searches (queries + filters)
 - Would be optional (view works without it)
-
-### Job Execution & Live Chat
-
-Deferred indefinitely (out of MVP scope):
-- Spawning `claude` CLI commands
-- Live message streaming
-- Job status tracking
-- Config overrides per session
 
 ## Testing
 

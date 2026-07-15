@@ -1,12 +1,14 @@
 # OpsDeck
 
-A macOS-first desktop app for browsing and inspecting Claude Code session records. OpsDeck is a read-only viewer for the local session data stored in `~/.claude/projects/`, displaying conversations, token usage, estimated costs, and file context.
+A macOS-first desktop app for browsing Claude Code session records and interactive live chat with the `claude` CLI. OpsDeck reads session data from `~/.claude/projects/` and spawns new chat sessions with slash command autocomplete, displaying conversations, token usage, estimated costs, and file context.
 
 ## Features
 
 - **Session Browsing**: Browse projects and sessions with search/filter support
 - **Message Viewer**: Virtualized message display with syntax-highlighted code blocks and markdown rendering
 - **Find in Session**: Cmd+F search within large conversations (no backend indexing)
+- **Live Chat**: Start promptless chat sessions; send messages with job lifecycle controls (pause, resume, interrupt)
+- **Slash Autocomplete**: Type `/` to see commands, skills, and agents from `~/.claude` and project directories (keyboard-navigable)
 - **Context Inspector**: View file changes, audit logs, task records, and token usage by model
 - **Live Refresh**: File watcher detects new/updated sessions automatically (~500ms debounce)
 - **Dark/Light Theme**: System-aware theme switching with UI controls
@@ -65,6 +67,8 @@ opsdeck/
 │   │   ├── projects/        # Project sidebar
 │   │   ├── sessions/        # Session list, filters, rows
 │   │   ├── messages/        # Message view, blocks, find-bar
+│   │   ├── chat/            # Live chat (composer, slash completion, job display)
+│   │   ├── profiles/        # Profile editor and launcher
 │   │   └── inspector/       # Context panel (token grid, tabs)
 │   ├── hooks/               # Custom React hooks (queries, state)
 │   ├── lib/
@@ -78,10 +82,16 @@ opsdeck/
 │   └── src/
 │       ├── lib.rs           # Tauri app setup, specta export
 │       ├── main.rs          # Entry point
-│       ├── commands.rs      # Tauri command handlers
+│       ├── commands.rs      # Tauri command handlers (list_*, get_*, start_job, etc.)
 │       ├── state.rs         # Shared app state (caches)
 │       ├── watcher.rs       # File watcher + events
 │       ├── pricing.rs       # Token pricing table
+│       ├── jobs/            # Live chat job management
+│       │   ├── mod.rs       # Job lifecycle (spawn, events, state)
+│       │   ├── options.rs   # LaunchOptions struct and validation
+│       │   ├── completions.rs # Filesystem scanner for slash commands/skills/agents
+│       │   ├── events.rs    # CLI event bridge (stream-json → JobEventPayload)
+│       │   └── settings_file.rs # CLI settings file generation
 │       └── parser/          # Session JSONL parsing logic
 │           ├── raw.rs       # Raw JSONL line parsing
 │           ├── normalize.rs # Message normalization
@@ -95,19 +105,22 @@ opsdeck/
 **Data Flow**: `~/.claude/projects/**/*.jsonl` (read-only) → Rust parser → tauri-specta bindings → React components → UI
 
 **Backend (Rust)**:
-1. Commands: `list_projects()`, `list_sessions(projectId)`, `get_session(projectId, sessionId)`, `get_pricing()`
-2. Events: `sessions-changed` fired by debounced file watcher when `.jsonl` files are added/modified
+1. Commands: `list_projects()`, `list_sessions(projectId)`, `get_session(projectId, sessionId)`, `get_pricing()`, `list_completions(cwd)`, `start_job(options)`, `send_message(jobId, text)`, `interrupt_job(jobId)`
+2. Events: `sessions-changed` (file watcher), `job-events` stream (CLI output: SessionStarted, TextDelta, ToolUse, TurnResult, etc.)
 3. Parsing: JSONL line-by-line into typed structures; deduplication by message_id; cost estimation from hardcoded rates
+4. Completions: Scan `~/.claude` and `<cwd>/.claude` for commands, skills, and agents (used by slash autocomplete)
 
 **Frontend (React)**:
 1. Query layer (TanStack Query) abstracts Tauri command calls
-2. State: selection context (current project/session), live refresh context, message jump context
-3. Virtualized list for 1k+ messages; find-bar state machine; lazy markdown rendering
-4. Type-safe: all bindings auto-generated from Rust; no manual DTO mirrors
+2. State: selection context (current project/session), live refresh context, message jump context, chat job state
+3. Chat composer with slash autocomplete (keyboard-navigable popup, two data sources: filesystem scan + CLI init event)
+4. Virtualized list for 1k+ messages; find-bar state machine; lazy markdown rendering
+5. Type-safe: all bindings auto-generated from Rust; no manual DTO mirrors
 
 ## Key Invariants
 
-- **Read-only**: Frontend never writes to `~/.claude` or modifies session files
+- **Read-only history**: Frontend never modifies existing session files; only reads `~/.claude/projects/`
+- **Promptless chat**: New Chat form spawns `claude` CLI with empty initial prompt; user types first message in composer
 - **Path traversal protection**: Session IDs validated in Rust; no directory escapes via `/` or `..`
 - **Markdown safety**: Links and images from session transcripts are neutralized (no navigation, no outbound fetches)
 - **Token accuracy**: Inspector token grid totals always match session metadata (single source of truth)
@@ -124,15 +137,20 @@ opsdeck/
 | `pnpm build` | Build Vite bundle to `dist/` |
 | `pnpm tauri build` | Build macOS app bundle to `src-tauri/target/release/bundle/` |
 
-## Deferred Features (Out of Scope for MVP)
+## Recently Implemented
 
-The following are tracked for future phases but not implemented:
+- **Live Chat**: Spawn `claude` CLI sessions with promptless launch (empty initial prompt)
+- **Slash Autocomplete**: Type `/` to invoke commands, skills, and agents from user/project directories
+- **Job Lifecycle**: Send messages, interrupt/resume turns, stream real-time job events
+
+## Deferred Features (Future Phases)
+
+The following are tracked for future development:
 
 - **Overlay Database**: SQLite layer for aliases, tags, bookmarks, archive/trash, checkpoints, notes
 - **Full-text Search**: FTS5 index on session content; saved searches
-- **Job Execution**: Spawn `claude` CLI commands within sessions; live chat
 - **Stats & Export**: Session aggregates, session export/redaction, share links
-- **Profiles & Config Center**: Multi-workspace support, CLI config overrides
+- **Multi-workspace Support**: Project-level CLI config overrides, settings inheritance
 
 ## Development Notes
 
