@@ -347,7 +347,12 @@ export type PermissionPreset = { id: string; label: string; permission_mode: str
  */
 export type PricingTable = { rates: ModelPricing[]; default_model_match: string; disclaimer: string }
 export type ProjectStats = { project_id: string; name: string; session_count: number; message_count: number; total_tokens: number; estimated_cost_usd: number }
-export type ProjectSummary = { project_id: string; name: string; path: string; session_count: number; active_count: number }
+export type ProjectSummary = { project_id: string; name: string; path: string; 
+/**
+ * Real working directory recorded in session JSONL; `None` when no
+ * session line carried one (the encoded dir name is lossy, never used).
+ */
+cwd: string | null; session_count: number; active_count: number }
 export type SessionDetail = { meta: SessionMeta; messages: Message[]; malformed_lines: number }
 export type SessionMeta = { session_id: string; project_id: string; started_at: string | null; ended_at: string | null; message_count: number; tokens: TokenUsage; estimated_cost_usd: number; models: string[]; model_tokens: ModelTokens[]; cli_version: string | null; git_branch: string | null; cwd: string | null; preview: string; is_active: boolean }
 export type SessionsChanged = { kind: string; project_id: string; session_id: string | null }

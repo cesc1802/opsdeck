@@ -32,6 +32,7 @@ import {
   createJob,
   fetchChatConfig,
   fetchProfiles,
+  fetchProjects,
   saveProfile,
   validateDir,
   validateLaunchOptions,
@@ -50,6 +51,11 @@ import {
   PRESET_DESCRIPTION_KEYS,
   textToList,
 } from "./launch-presets";
+import {
+  CUSTOM_CWD,
+  matchProjectByCwd,
+  projectPickerEntries,
+} from "./project-picker";
 
 type ListField =
   | "allowed_tools"
@@ -84,6 +90,9 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
     exists: boolean;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Sticky "Custom path…" choice: without it, picking custom while cwd still
+  // equals a project path would immediately derive back to that project.
+  const [customPicked, setCustomPicked] = useState(false);
   const [bypassOpen, setBypassOpen] = useState(false);
   const [loadedProfile, setLoadedProfile] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
@@ -98,6 +107,11 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
   const { data: profiles } = useQuery({
     queryKey: queryKeys.profiles,
     queryFn: fetchProfiles,
+  });
+  // Same key as the sidebar; TanStack dedupes the fetch.
+  const { data: projects } = useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: fetchProjects,
   });
 
   const set = <K extends keyof LaunchOptions>(
@@ -142,6 +156,23 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
       ? t("chat.form.cwdInvalid")
       : undefined);
 
+  // Picker state is derived from options.cwd (single source of truth): a
+  // matching project selects its entry; any other non-empty cwd (e.g. a
+  // Resume/Fork seed from a subdirectory) falls to "Custom path…"; an empty
+  // cwd shows the placeholder.
+  const pickerEntries = useMemo(
+    () => projectPickerEntries(projects ?? []),
+    [projects],
+  );
+  const matchedProject = useMemo(
+    () => matchProjectByCwd(projects ?? [], options.cwd),
+    [projects, options.cwd],
+  );
+  const pickerValue = customPicked
+    ? CUSTOM_CWD
+    : (matchedProject?.project_id ?? (options.cwd ? CUSTOM_CWD : ""));
+  const showCwdInput = pickerValue === CUSTOM_CWD;
+
   async function launch(candidate: LaunchOptions) {
     setSubmitting(true);
     try {
@@ -158,6 +189,8 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
 
   function applyProfile(profile: ChatProfile) {
     setLoadedProfile(profile.name);
+    // Let the loaded cwd derive its own picker entry.
+    setCustomPicked(false);
     setOptions(profile.options);
     setListText({
       allowed_tools: listToText(profile.options.allowed_tools),
@@ -276,15 +309,63 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
           />
         </Field>
 
-        <Field label={t("chat.form.cwd")} htmlFor="chat-cwd" error={cwdError}>
-          <Input
-            id="chat-cwd"
-            className="mono text-base"
-            placeholder={t("chat.form.cwdPlaceholder")}
-            value={options.cwd}
-            aria-invalid={Boolean(cwdError)}
-            onChange={(event) => set("cwd", event.target.value)}
-          />
+        <Field
+          label={t("chat.form.project")}
+          htmlFor="chat-project"
+          error={cwdError}
+        >
+          <Select
+            value={pickerValue}
+            onValueChange={(value) => {
+              if (value === CUSTOM_CWD) {
+                setCustomPicked(true);
+                return;
+              }
+              setCustomPicked(false);
+              const entry = pickerEntries.find(
+                (candidate) => candidate.projectId === value,
+              );
+              if (entry?.cwd) set("cwd", entry.cwd);
+            }}
+          >
+            <SelectTrigger
+              id="chat-project"
+              className="w-full"
+              aria-invalid={Boolean(cwdError)}
+            >
+              <SelectValue placeholder={t("chat.form.projectPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {pickerEntries.map((entry) => (
+                <SelectItem
+                  key={entry.projectId}
+                  value={entry.projectId}
+                  disabled={entry.disabled}
+                >
+                  <span className="truncate">{entry.name}</span>
+                  {entry.cwd && (
+                    <span className="mono truncate text-xs text-muted-foreground">
+                      {entry.cwd}
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
+              <SelectItem value={CUSTOM_CWD}>
+                {t("chat.form.customPath")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {showCwdInput && (
+            <Input
+              id="chat-cwd"
+              className="mono text-base"
+              aria-label={t("chat.form.cwd")}
+              placeholder={t("chat.form.cwdPlaceholder")}
+              value={options.cwd}
+              aria-invalid={Boolean(cwdError)}
+              onChange={(event) => set("cwd", event.target.value)}
+            />
+          )}
         </Field>
 
         <Field

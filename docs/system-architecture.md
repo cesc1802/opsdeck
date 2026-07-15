@@ -38,7 +38,7 @@ Four Tauri commands expose session data:
 
 | Command | Parameters | Returns | Purpose |
 |---------|-----------|---------|---------|
-| `list_projects()` | — | `ProjectSummary[]` | Enumerate all projects in ~/.claude/projects with session counts |
+| `list_projects()` | — | `ProjectSummary[]` | Enumerate all projects in ~/.claude/projects with session counts and the real cwd read from session JSONL (feeds the New Chat project picker; `null` when unparseable) |
 | `list_sessions(projectId)` | project_id: string | `SessionMeta[]` | List sessions in a project with metadata (timestamps, token usage, models) |
 | `get_session(projectId, sessionId)` | project_id, session_id: strings | `SessionDetail` | Fetch full session: metadata + parsed messages + malformed line count |
 | `get_pricing()` | — | `PricingTable` | Hardcoded model pricing rates (input/output/cache tokens) |

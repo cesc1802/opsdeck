@@ -16,6 +16,9 @@ pub struct ProjectSummary {
     pub project_id: String,
     pub name: String,
     pub path: String,
+    /// Real working directory recorded in session JSONL; `None` when no
+    /// session line carried one (the encoded dir name is lossy, never used).
+    pub cwd: Option<String>,
     pub session_count: u32,
     pub active_count: u32,
 }
@@ -61,8 +64,10 @@ fn project_cwd(project_dir: &Path) -> Option<String> {
 }
 
 /// Friendly project name: package.json `name` at the session cwd, falling
-/// back to the cwd basename, then the raw project dir name.
-fn friendly_name(state: &AppState, project_id: &str, project_dir: &Path) -> String {
+/// back to the cwd basename, then the raw project dir name. The caller
+/// resolves the cwd (via `project_cwd`) so one read serves both the name
+/// and the summary's `cwd` field.
+fn friendly_name(state: &AppState, project_id: &str, cwd: Option<&str>) -> String {
     if let Some(name) = state
         .project_name_cache
         .lock()
@@ -72,9 +77,9 @@ fn friendly_name(state: &AppState, project_id: &str, project_dir: &Path) -> Stri
         return name.clone();
     }
 
-    let name = project_cwd(project_dir)
+    let name = cwd
         .map(|cwd| {
-            let cwd_path = PathBuf::from(&cwd);
+            let cwd_path = PathBuf::from(cwd);
             fs::read_to_string(cwd_path.join("package.json"))
                 .ok()
                 .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
@@ -85,7 +90,7 @@ fn friendly_name(state: &AppState, project_id: &str, project_dir: &Path) -> Stri
                         .and_then(|n| n.to_str())
                         .map(str::to_string)
                 })
-                .unwrap_or(cwd)
+                .unwrap_or_else(|| cwd.to_string())
         })
         .unwrap_or_else(|| project_id.to_string());
 
@@ -188,9 +193,11 @@ pub async fn list_projects(
             .iter()
             .filter(|path| is_active_mtime(file_stat(path).map(|(mtime, _)| mtime)))
             .count() as u32;
+        let cwd = project_cwd(&dir);
         projects.push(ProjectSummary {
-            name: friendly_name(&state, &project_id, &dir),
+            name: friendly_name(&state, &project_id, cwd.as_deref()),
             path: dir.to_string_lossy().into_owned(),
+            cwd,
             session_count: files.len() as u32,
             active_count,
             project_id,
@@ -376,7 +383,7 @@ pub async fn get_stats(
             continue;
         }
         inputs.push(crate::stats::ProjectSessions {
-            name: friendly_name(&state, &project_id, &dir),
+            name: friendly_name(&state, &project_id, project_cwd(&dir).as_deref()),
             project_id,
             sessions,
         });

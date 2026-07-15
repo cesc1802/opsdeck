@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { BarChart3, MessageSquarePlus, Settings } from "lucide-react";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +23,9 @@ import { RunningJobsList } from "@/features/chat/running-jobs-list";
 import { ConfigPanel } from "@/features/config/config-panel";
 import { StatsPanel } from "@/features/stats/stats-panel";
 import { useStats } from "@/features/stats/use-stats";
+import type { ProjectSummary } from "@/lib/bindings";
 import { formatCost, formatTokens, totalTokens } from "@/lib/format";
+import { queryKeys } from "@/lib/query-keys";
 import { t } from "@/lib/i18n";
 
 const queryClient = new QueryClient({
@@ -123,12 +129,23 @@ function ConfigButton() {
 }
 
 function NewChatButton() {
-  const { openNewChat } = useSelection();
+  const { openNewChat, projectId } = useSelection();
+  const queryClient = useQueryClient();
   return (
     <Button
       size="sm"
       className="h-7 gap-1.5 px-2.5 text-xs"
-      onClick={() => openNewChat()}
+      onClick={() => {
+        // Seed the form with the sidebar-selected project's cwd, read from
+        // the projects query cache the sidebar keeps warm.
+        const projects = queryClient.getQueryData<ProjectSummary[]>(
+          queryKeys.projects,
+        );
+        const cwd = projects?.find(
+          (project) => project.project_id === projectId,
+        )?.cwd;
+        openNewChat(cwd ? { cwd } : undefined);
+      }}
     >
       <MessageSquarePlus className="size-3.5" />
       {t("shell.newChat")}
