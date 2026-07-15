@@ -239,7 +239,12 @@ export function ChatView() {
           </div>
         )}
       </div>
-      <ChatComposer jobId={job.job_id} status={job.status} />
+      <ChatComposer
+        jobId={job.job_id}
+        status={job.status}
+        cwd={job.cwd}
+        completions={timeline.completions}
+      />
     </div>
   );
 }

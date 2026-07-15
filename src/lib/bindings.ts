@@ -136,6 +136,14 @@ async getChatConfig() : Promise<ChatConfig> {
     return await TAURI_INVOKE("get_chat_config");
 },
 /**
+ * Slash-completion names scanned from `~/.claude` and `<cwd>/.claude`.
+ * Available before any turn runs; the session init event later supplies the
+ * authoritative superset.
+ */
+async listCompletions(cwd: string) : Promise<CompletionCatalog> {
+    return await TAURI_INVOKE("list_completions", { cwd });
+},
+/**
  * True when the (possibly `~`-prefixed) path is an existing directory.
  */
 async validateDir(path: string) : Promise<boolean> {
@@ -258,6 +266,17 @@ export type ChatProfile = { name: string; options: LaunchOptions;
  * editing never loses row structure.
  */
 hook_builder: HookRow[]; created_at_ms: number; updated_at_ms: number }
+/**
+ * Slash-completion names available before the CLI's `init` event arrives:
+ * user- and project-scope custom commands, skills, and agents discovered on
+ * disk. Plugin and built-in entries are intentionally absent — the session's
+ * `init` payload supplies those once the first turn starts.
+ */
+export type CompletionCatalog = { 
+/**
+ * Slash-invocable names: custom commands plus skills.
+ */
+commands: string[]; agents: string[] }
 export type ExportFormat = "md" | "json" | "html"
 export type FieldError = { field: string; message: string }
 export type HealthCheck = { name: string; ok: boolean; detail: string; duration_ms: number }
@@ -276,7 +295,13 @@ export type JobEvent = { seq: number; payload: JobEventPayload }
  * into this enum; unknown CLI event types pass through as `Notice` so newer
  * CLI versions degrade gracefully instead of breaking the chat.
  */
-export type JobEventPayload = { type: "sessionStarted"; data: { session_id: string; model: string; cwd: string; tools: string[] } } | 
+export type JobEventPayload = { type: "sessionStarted"; data: { session_id: string; model: string; cwd: string; tools: string[]; 
+/**
+ * Session-authoritative slash-invocable names from the CLI's init
+ * payload (skills, custom/plugin commands, built-ins). Empty when an
+ * older CLI omits the key.
+ */
+slash_commands: string[]; agents: string[] } } | 
 /**
  * A message the user sent to this job (initial prompt or follow-up).
  * Pushed locally when writing to stdin — the CLI does not echo it — so
@@ -297,12 +322,14 @@ export type JobsChanged = { job_id: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 /**
  * Wire contract between the New Chat form, saved profiles, and the job
- * engine. All fields optional except cwd + prompt; lists tolerate comma or
+ * engine. All fields optional except cwd; lists tolerate comma or
  * newline separated single entries (normalized before validation).
  */
 export type LaunchOptions = { name: string | null; cwd: string; 
 /**
- * First user message, sent over stdin after spawn (never a CLI arg).
+ * Seeded first user message (profile / Resume / Fork), sent over stdin
+ * after spawn when non-empty (never a CLI arg). Empty means the user
+ * types the first message in the composer.
  */
 prompt: string; model: string | null; effort: string | null; permission_mode: string | null; max_budget_usd: number | null; worktree: boolean; worktree_name: string | null; resume_session_id: string | null; fork_session: boolean; allowed_tools: string[]; disallowed_tools: string[]; mcp_configs: string[]; strict_mcp_config: boolean; plugin_dirs: string[]; 
 /**

@@ -16,6 +16,11 @@ pub enum JobEventPayload {
         model: String,
         cwd: String,
         tools: Vec<String>,
+        /// Session-authoritative slash-invocable names from the CLI's init
+        /// payload (skills, custom/plugin commands, built-ins). Empty when an
+        /// older CLI omits the key.
+        slash_commands: Vec<String>,
+        agents: Vec<String>,
     },
     /// A message the user sent to this job (initial prompt or follow-up).
     /// Pushed locally when writing to stdin — the CLI does not echo it — so
@@ -75,6 +80,20 @@ fn clamp(text: &str) -> String {
 
 fn str_field(v: &Value, key: &str) -> String {
     v.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
+}
+
+/// String array field, empty when absent or wrongly typed (older CLIs may
+/// omit init keys; degrade instead of failing the bridge).
+fn str_array(v: &Value, key: &str) -> Vec<String> {
+    v.get(key)
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Flatten a tool_result `content` (string or block array) into plain text.
@@ -176,16 +195,9 @@ pub fn bridge_line(line: &str) -> Vec<JobEventPayload> {
                 session_id: str_field(&v, "session_id"),
                 model: str_field(&v, "model"),
                 cwd: str_field(&v, "cwd"),
-                tools: v
-                    .get("tools")
-                    .and_then(Value::as_array)
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_string)
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                tools: str_array(&v, "tools"),
+                slash_commands: str_array(&v, "slash_commands"),
+                agents: str_array(&v, "agents"),
             }],
             _ => vec![JobEventPayload::Notice {
                 message: clamp(&v.to_string()),
@@ -264,6 +276,8 @@ mod tests {
             model,
             cwd,
             tools,
+            slash_commands,
+            agents,
         } = &events[0]
         else {
             panic!("first event should be session_started");
@@ -272,6 +286,11 @@ mod tests {
         assert_eq!(model, "claude-sonnet-5");
         assert_eq!(cwd, "/tmp/demo");
         assert_eq!(tools, &["Bash".to_string(), "Read".to_string()]);
+        assert_eq!(
+            slash_commands,
+            &["compact".to_string(), "cook".to_string()]
+        );
+        assert_eq!(agents, &["code-reviewer".to_string()]);
     }
 
     #[test]

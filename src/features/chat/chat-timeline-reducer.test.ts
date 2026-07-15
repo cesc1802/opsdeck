@@ -21,6 +21,8 @@ function conversation(): JobEvent[] {
         model: "claude-sonnet-5",
         cwd: "/tmp/demo",
         tools: ["Bash", "Read"],
+        slash_commands: ["compact", "cook"],
+        agents: ["code-reviewer"],
       },
     }),
     ev({ type: "userMessage", data: { text: "list the files" } }),
@@ -63,6 +65,10 @@ describe("reduceTimeline", () => {
     expect(timeline.sessionId).toBe("ses_1");
     expect(timeline.model).toBe("claude-sonnet-5");
     expect(timeline.cwd).toBe("/tmp/demo");
+    expect(timeline.completions).toEqual({
+      slashCommands: ["compact", "cook"],
+      agents: ["code-reviewer"],
+    });
     expect(kinds(timeline.items)).toEqual([
       "message:user",
       "message:assistant",

@@ -24,6 +24,9 @@ export interface ChatTimeline {
   model: string | null;
   cwd: string | null;
   tools: string[];
+  /** Session-authoritative completion lists from the CLI's init event; null
+   *  until the first turn starts (the filesystem scan covers that window). */
+  completions: { slashCommands: string[]; agents: string[] } | null;
   items: ChatItem[];
   lastTurn: TurnInfo | null;
   /** An assistant message is currently receiving deltas. */
@@ -39,6 +42,7 @@ export function emptyTimeline(): ChatTimeline {
     model: null,
     cwd: null,
     tools: [],
+    completions: null,
     items: [],
     lastTurn: null,
     streaming: false,
@@ -139,6 +143,10 @@ function applyEvent(draft: ChatTimeline, event: JobEvent): void {
       draft.model = payload.data.model || draft.model;
       draft.cwd = payload.data.cwd || draft.cwd;
       draft.tools = payload.data.tools;
+      draft.completions = {
+        slashCommands: payload.data.slash_commands,
+        agents: payload.data.agents,
+      };
       break;
     case "userMessage":
       draft.streaming = false;

@@ -368,21 +368,6 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
           )}
         </Field>
 
-        <Field
-          label={t("chat.form.prompt")}
-          htmlFor="chat-prompt"
-          error={errors.prompt}
-        >
-          <Textarea
-            id="chat-prompt"
-            className="min-h-24 text-base"
-            placeholder={t("chat.form.promptPlaceholder")}
-            value={options.prompt}
-            aria-invalid={Boolean(errors.prompt)}
-            onChange={(event) => set("prompt", event.target.value)}
-          />
-        </Field>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field
             label={t("chat.form.model")}

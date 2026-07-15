@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod completions;
 pub mod events;
 pub mod options;
 pub mod ring_buffer;
@@ -256,6 +257,8 @@ mod tests {
             model: "claude-sonnet-5".into(),
             cwd: "/tmp".into(),
             tools: vec![],
+            slash_commands: vec![],
+            agents: vec![],
         }
     }
 

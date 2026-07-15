@@ -30,6 +30,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             jobs::commands::interrupt_job,
             jobs::commands::stop_job,
             jobs::commands::get_chat_config,
+            jobs::commands::list_completions,
             jobs::commands::validate_dir,
             jobs::commands::validate_launch_options,
             profiles::list_profiles,

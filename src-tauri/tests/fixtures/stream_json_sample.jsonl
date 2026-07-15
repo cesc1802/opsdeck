@@ -1,4 +1,4 @@
-{"type":"system","subtype":"init","cwd":"/tmp/demo","session_id":"ses_123","tools":["Bash","Read"],"model":"claude-sonnet-5","permissionMode":"acceptEdits","apiKeySource":"none"}
+{"type":"system","subtype":"init","cwd":"/tmp/demo","session_id":"ses_123","tools":["Bash","Read"],"slash_commands":["compact","cook"],"agents":["code-reviewer"],"model":"claude-sonnet-5","permissionMode":"acceptEdits","apiKeySource":"none"}
 {"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_1","role":"assistant"}}}
 {"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}}
 {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me look at the files."}}}

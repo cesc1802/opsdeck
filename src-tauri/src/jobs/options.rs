@@ -29,14 +29,16 @@ const NAME_CLAMP: usize = 120;
 const MAX_BUDGET_USD: f64 = 100_000.0;
 
 /// Wire contract between the New Chat form, saved profiles, and the job
-/// engine. All fields optional except cwd + prompt; lists tolerate comma or
+/// engine. All fields optional except cwd; lists tolerate comma or
 /// newline separated single entries (normalized before validation).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
 #[serde(default, rename_all = "snake_case")]
 pub struct LaunchOptions {
     pub name: Option<String>,
     pub cwd: String,
-    /// First user message, sent over stdin after spawn (never a CLI arg).
+    /// Seeded first user message (profile / Resume / Fork), sent over stdin
+    /// after spawn when non-empty (never a CLI arg). Empty means the user
+    /// types the first message in the composer.
     pub prompt: String,
     pub model: Option<String>,
     pub effort: Option<String>,
@@ -274,9 +276,6 @@ fn validate_hooks_json(errors: &mut Vec<FieldError>, raw: &str) {
 pub fn validate_options(options: &LaunchOptions) -> Vec<FieldError> {
     let mut errors = Vec::new();
 
-    if options.prompt.trim().is_empty() {
-        err(&mut errors, "prompt", "prompt is required");
-    }
     if options.cwd.is_empty() {
         err(&mut errors, "cwd", "working directory is required");
     } else if !expand_path(&options.cwd).is_dir() {
@@ -452,18 +451,24 @@ mod tests {
     }
 
     #[test]
-    fn missing_prompt_and_bad_cwd_fail() {
+    fn empty_prompt_is_allowed() {
+        let mut options = valid_options();
+        options.prompt = "  ".into();
+        assert!(validate_options(&options).is_empty());
+    }
+
+    #[test]
+    fn bad_cwd_fails() {
         let options = LaunchOptions {
             cwd: "/definitely/not/a/dir".into(),
-            prompt: "  ".into(),
+            prompt: "hello".into(),
             ..Default::default()
         };
         let fields: Vec<String> = validate_options(&options)
             .into_iter()
             .map(|e| e.field)
             .collect();
-        assert!(fields.contains(&"prompt".to_string()));
-        assert!(fields.contains(&"cwd".to_string()));
+        assert_eq!(fields, vec!["cwd"]);
     }
 
     #[test]

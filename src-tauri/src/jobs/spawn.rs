@@ -150,12 +150,16 @@ pub fn create_job(
     };
     let mut job = Job::new(summary.clone(), stdin, settings_path);
 
-    // First user message goes over stdin (stream-json input mode). Buffer it
-    // too so attach replay shows the user's side of the conversation.
-    write_stdin_line(&mut job, &user_message_line(&options.prompt))?;
-    job.push_and_fanout(JobEventPayload::UserMessage {
-        text: options.prompt.clone(),
-    });
+    // A seeded prompt (profile / Resume / Fork) goes over stdin as the first
+    // user message (stream-json input mode), buffered too so attach replay
+    // shows the user's side. Without one the job waits for the composer; the
+    // CLI emits nothing but hook events until the first message arrives.
+    if !options.prompt.trim().is_empty() {
+        write_stdin_line(&mut job, &user_message_line(&options.prompt))?;
+        job.push_and_fanout(JobEventPayload::UserMessage {
+            text: options.prompt.clone(),
+        });
+    }
 
     let job_arc = state.jobs.insert(job);
     emit_jobs_changed(app, &job_id);

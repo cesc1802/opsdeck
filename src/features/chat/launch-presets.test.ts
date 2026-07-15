@@ -85,11 +85,11 @@ describe("groupFieldErrors", () => {
       groupFieldErrors([
         { field: "cwd", message: "working directory is required" },
         { field: "cwd", message: "directory does not exist" },
-        { field: "prompt", message: "prompt is required" },
+        { field: "effort", message: "unknown effort" },
       ]),
     ).toEqual({
       cwd: "working directory is required",
-      prompt: "prompt is required",
+      effort: "unknown effort",
     });
   });
 

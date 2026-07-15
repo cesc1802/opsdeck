@@ -4,6 +4,7 @@ import {
   commands,
   type ChatConfig,
   type ChatProfile,
+  type CompletionCatalog,
   type ExportFormat,
   type FieldError,
   type HealthCheck,
@@ -76,6 +77,12 @@ export async function fetchJobs(): Promise<JobSummary[]> {
 
 export async function fetchChatConfig(): Promise<ChatConfig> {
   return commands.getChatConfig();
+}
+
+export async function fetchCompletions(
+  cwd: string,
+): Promise<CompletionCatalog> {
+  return commands.listCompletions(cwd);
 }
 
 export async function validateDir(path: string): Promise<boolean> {

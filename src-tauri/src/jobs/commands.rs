@@ -1,5 +1,6 @@
 use tauri::ipc::Channel;
 
+use super::completions::{self, CompletionCatalog};
 use super::options::{self, ChatConfig, FieldError, LaunchOptions};
 use super::{spawn, JobEvent, JobSummary};
 use crate::state::AppState;
@@ -78,6 +79,15 @@ pub async fn stop_job(
 #[specta::specta]
 pub fn get_chat_config() -> ChatConfig {
     options::chat_config()
+}
+
+/// Slash-completion names scanned from `~/.claude` and `<cwd>/.claude`.
+/// Available before any turn runs; the session init event later supplies the
+/// authoritative superset.
+#[tauri::command]
+#[specta::specta]
+pub fn list_completions(cwd: String) -> CompletionCatalog {
+    completions::scan(&cwd)
 }
 
 /// True when the (possibly `~`-prefixed) path is an existing directory.

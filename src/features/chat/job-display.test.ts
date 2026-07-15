@@ -30,7 +30,7 @@ describe("composerAction", () => {
     const expected: Record<JobStatus, string> = {
       idle: "send",
       running: "interrupt",
-      starting: "starting",
+      starting: "send",
       completed: "ended",
       stopped: "ended",
       interrupted: "ended",

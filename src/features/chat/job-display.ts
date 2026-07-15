@@ -13,13 +13,14 @@ export function isTerminalStatus(status: JobStatus): boolean {
   return TERMINAL_STATUSES.has(status);
 }
 
-export type ComposerAction = "send" | "interrupt" | "starting" | "ended";
+export type ComposerAction = "send" | "interrupt" | "ended";
 
 /** What the composer's primary control does for a given job status. */
 export function composerAction(status: JobStatus): ComposerAction {
-  if (status === "idle") return "send";
+  // A starting job accepts input: stdin is piped from spawn, and a promptless
+  // launch stays "starting" until the first composer message begins a turn.
+  if (status === "idle" || status === "starting") return "send";
   if (status === "running") return "interrupt";
-  if (status === "starting") return "starting";
   return "ended";
 }
 
