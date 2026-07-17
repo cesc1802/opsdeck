@@ -3,7 +3,7 @@ import {
   QueryClientProvider,
   useQueryClient,
 } from "@tanstack/react-query";
-import { BarChart3, MessageSquarePlus, Settings } from "lucide-react";
+import { BarChart3, MessageSquarePlus } from "lucide-react";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -20,7 +20,6 @@ import { LiveChatProvider } from "@/features/chat/live-chat-context";
 import { ChatView } from "@/features/chat/chat-view";
 import { NewChatForm } from "@/features/chat/new-chat-form";
 import { RunningJobsList } from "@/features/chat/running-jobs-list";
-import { ConfigPanel } from "@/features/config/config-panel";
 import { StatsPanel } from "@/features/stats/stats-panel";
 import { useStats } from "@/features/stats/use-stats";
 import type { ProjectSummary } from "@/lib/bindings";
@@ -66,9 +65,6 @@ function MainPane() {
   if (mode.kind === "chat") {
     return <ChatView />;
   }
-  if (mode.kind === "config") {
-    return <ConfigPanel />;
-  }
   if (mode.kind === "stats") {
     return <StatsPanel />;
   }
@@ -109,21 +105,6 @@ function StatsButton() {
       ) : (
         t("shell.stats")
       )}
-    </Button>
-  );
-}
-
-function ConfigButton() {
-  const { openConfig } = useSelection();
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="h-7 gap-1.5 px-2.5 text-xs"
-      onClick={() => openConfig()}
-    >
-      <Settings className="size-3.5" />
-      {t("shell.config")}
     </Button>
   );
 }
@@ -169,7 +150,6 @@ function App() {
                     headerActions={
                       <>
                         <StatsButton />
-                        <ConfigButton />
                         <NewChatButton />
                       </>
                     }

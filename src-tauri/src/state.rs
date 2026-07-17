@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-use crate::db::Db;
 use crate::jobs::JobRegistry;
 use crate::parser::meta::SessionMeta;
 
@@ -22,8 +21,6 @@ pub struct AppState {
     /// Live chat jobs (claude CLI subprocesses). In-memory only: jobs do not
     /// survive an app restart.
     pub jobs: JobRegistry,
-    /// App-owned SQLite store (chat profiles). Opened during setup.
-    pub db: Db,
 }
 
 /// Root of the Claude CLI's session store. Everything under it is read-only

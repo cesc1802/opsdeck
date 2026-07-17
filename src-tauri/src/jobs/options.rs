@@ -14,16 +14,6 @@ pub const PERMISSION_MODES: [&str; 6] = [
     "plan",
 ];
 pub const SETTING_SOURCES: [&str; 3] = ["user", "project", "local"];
-pub const HOOK_EVENTS: [&str; 8] = [
-    "PreToolUse",
-    "PostToolUse",
-    "PostToolUseFailure",
-    "UserPromptSubmit",
-    "Stop",
-    "SubagentStop",
-    "SessionStart",
-    "SessionEnd",
-];
 
 const NAME_CLAMP: usize = 120;
 const MAX_BUDGET_USD: f64 = 100_000.0;
@@ -53,14 +43,11 @@ pub struct LaunchOptions {
     pub mcp_configs: Vec<String>,
     pub strict_mcp_config: bool,
     pub plugin_dirs: Vec<String>,
-    /// JSON object: agent name -> { description, prompt, ... }.
-    pub agents_json: Option<String>,
-    /// JSON array of hook rows: { event, matcher?, command, timeout, enabled }.
-    pub hooks_json: Option<String>,
     pub setting_sources: Vec<String>,
     pub append_system_prompt: Option<String>,
-    /// Raw settings JSON object (power-user escape hatch), merged with hooks
-    /// into the temp `--settings` file.
+    /// Raw settings JSON object (power-user escape hatch), written to the
+    /// temp `--settings` file. Agents and hooks come from native `.claude/`
+    /// config via `setting_sources`, not from OpsDeck.
     pub settings_json: Option<String>,
 }
 
@@ -86,7 +73,6 @@ pub struct ChatConfig {
     pub efforts: Vec<String>,
     pub permission_modes: Vec<String>,
     pub setting_sources: Vec<String>,
-    pub hook_events: Vec<String>,
     pub presets: Vec<PermissionPreset>,
 }
 
@@ -96,7 +82,6 @@ pub fn chat_config() -> ChatConfig {
         efforts: EFFORTS.iter().map(|s| s.to_string()).collect(),
         permission_modes: PERMISSION_MODES.iter().map(|s| s.to_string()).collect(),
         setting_sources: SETTING_SOURCES.iter().map(|s| s.to_string()).collect(),
-        hook_events: HOOK_EVENTS.iter().map(|s| s.to_string()).collect(),
         presets: vec![
             PermissionPreset {
                 id: "safe".into(),
@@ -200,79 +185,6 @@ fn err(errors: &mut Vec<FieldError>, field: &str, message: impl Into<String>) {
     });
 }
 
-fn validate_agents_json(errors: &mut Vec<FieldError>, raw: &str) {
-    let parsed: Result<Value, _> = serde_json::from_str(raw);
-    let Ok(Value::Object(agents)) = parsed else {
-        err(errors, "agents_json", "must be a JSON object of agent definitions");
-        return;
-    };
-    for (name, agent) in agents {
-        let has = |key: &str| {
-            agent
-                .get(key)
-                .and_then(Value::as_str)
-                .is_some_and(|s| !s.trim().is_empty())
-        };
-        if !has("description") || !has("prompt") {
-            err(
-                errors,
-                "agents_json",
-                format!("agent {name:?} needs non-empty description and prompt"),
-            );
-        }
-    }
-}
-
-/// One row from the hook builder. Validate-only: commands are never executed
-/// by OpsDeck, only compiled into the temp settings file.
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-#[serde(default, rename_all = "snake_case")]
-pub struct HookRow {
-    pub event: String,
-    pub matcher: Option<String>,
-    pub command: String,
-    pub timeout: f64,
-    pub enabled: bool,
-}
-
-impl Default for HookRow {
-    fn default() -> Self {
-        Self {
-            event: String::new(),
-            matcher: None,
-            command: String::new(),
-            timeout: 0.0,
-            enabled: true,
-        }
-    }
-}
-
-pub fn parse_hook_rows(raw: &str) -> Result<Vec<HookRow>, String> {
-    serde_json::from_str::<Vec<HookRow>>(raw)
-        .map_err(|e| format!("must be a JSON array of hook rows: {e}"))
-}
-
-fn validate_hooks_json(errors: &mut Vec<FieldError>, raw: &str) {
-    let rows = match parse_hook_rows(raw) {
-        Ok(rows) => rows,
-        Err(message) => {
-            err(errors, "hooks_json", message);
-            return;
-        }
-    };
-    for (i, row) in rows.iter().enumerate() {
-        if !HOOK_EVENTS.contains(&row.event.as_str()) {
-            err(errors, "hooks_json", format!("row {i}: unknown event {:?}", row.event));
-        }
-        if row.command.trim().is_empty() {
-            err(errors, "hooks_json", format!("row {i}: command is required"));
-        }
-        if row.timeout <= 0.0 {
-            err(errors, "hooks_json", format!("row {i}: timeout must be > 0"));
-        }
-    }
-}
-
 pub fn validate_options(options: &LaunchOptions) -> Vec<FieldError> {
     let mut errors = Vec::new();
 
@@ -297,7 +209,11 @@ pub fn validate_options(options: &LaunchOptions) -> Vec<FieldError> {
     }
     if let Some(budget) = options.max_budget_usd {
         if !(0.0..=MAX_BUDGET_USD).contains(&budget) {
-            err(&mut errors, "max_budget_usd", "must be between 0 and 100000");
+            err(
+                &mut errors,
+                "max_budget_usd",
+                "must be between 0 and 100000",
+            );
         }
     }
     if let Some(session_id) = &options.resume_session_id {
@@ -315,7 +231,11 @@ pub fn validate_options(options: &LaunchOptions) -> Vec<FieldError> {
     }
     for dir in &options.plugin_dirs {
         if !expand_path(dir).is_dir() {
-            err(&mut errors, "plugin_dirs", format!("not a directory: {dir}"));
+            err(
+                &mut errors,
+                "plugin_dirs",
+                format!("not a directory: {dir}"),
+            );
         }
     }
     for source in &options.setting_sources {
@@ -325,16 +245,6 @@ pub fn validate_options(options: &LaunchOptions) -> Vec<FieldError> {
                 "setting_sources",
                 format!("unknown source: {source}"),
             );
-        }
-    }
-    if let Some(raw) = &options.agents_json {
-        if !raw.trim().is_empty() {
-            validate_agents_json(&mut errors, raw);
-        }
-    }
-    if let Some(raw) = &options.hooks_json {
-        if !raw.trim().is_empty() {
-            validate_hooks_json(&mut errors, raw);
         }
     }
     if let Some(raw) = &options.settings_json {
@@ -406,11 +316,6 @@ pub fn build_args(options: &LaunchOptions, settings_path: Option<&Path>) -> Vec<
     }
     for dir in &options.plugin_dirs {
         args.extend(["--plugin-dir".into(), dir.clone()]);
-    }
-    if let Some(agents) = &options.agents_json {
-        if !agents.trim().is_empty() {
-            args.extend(["--agents".into(), agents.clone()]);
-        }
     }
     if !options.setting_sources.is_empty() {
         args.extend([
@@ -496,30 +401,6 @@ mod tests {
     }
 
     #[test]
-    fn agents_json_requires_description_and_prompt() {
-        let mut options = valid_options();
-        options.agents_json = Some(r#"{"helper":{"description":"x","prompt":"y"}}"#.into());
-        assert!(validate_options(&options).is_empty());
-        options.agents_json = Some(r#"{"helper":{"description":"x"}}"#.into());
-        assert_eq!(validate_options(&options).len(), 1);
-        options.agents_json = Some("[]".into());
-        assert_eq!(validate_options(&options).len(), 1);
-    }
-
-    #[test]
-    fn hook_rows_validated() {
-        let mut options = valid_options();
-        options.hooks_json = Some(
-            r#"[{"event":"PreToolUse","matcher":"Bash","command":"echo hi","timeout":30,"enabled":true}]"#
-                .into(),
-        );
-        assert!(validate_options(&options).is_empty());
-        options.hooks_json =
-            Some(r#"[{"event":"NotAnEvent","command":"","timeout":0,"enabled":true}]"#.into());
-        assert_eq!(validate_options(&options).len(), 3);
-    }
-
-    #[test]
     fn normalize_coerces_lists_and_clamps() {
         let mut options = valid_options();
         options.allowed_tools = vec!["Bash, Read\nEdit".into(), " ".into()];
@@ -573,7 +454,6 @@ mod tests {
         options.mcp_configs = vec!["/tmp/mcp.json".into()];
         options.strict_mcp_config = true;
         options.plugin_dirs = vec!["/tmp/plugins".into()];
-        options.agents_json = Some(r#"{"a":{"description":"d","prompt":"p"}}"#.into());
         options.setting_sources = vec!["user".into(), "project".into()];
         options.append_system_prompt = Some("be brief".into());
         let args = build_args(&options, Some(Path::new("/tmp/settings.json")));

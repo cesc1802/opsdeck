@@ -3,12 +3,9 @@
 import {
   commands,
   type ChatConfig,
-  type ChatProfile,
   type CompletionCatalog,
   type ExportFormat,
   type FieldError,
-  type HealthCheck,
-  type HookRow,
   type JobSummary,
   type LaunchOptions,
   type PricingTable,
@@ -112,41 +109,4 @@ export async function interruptJob(jobId: string): Promise<void> {
 
 export async function stopJob(jobId: string): Promise<void> {
   unwrap(await commands.stopJob(jobId));
-}
-
-export async function fetchProfiles(): Promise<ChatProfile[]> {
-  return unwrap(await commands.listProfiles());
-}
-
-export async function saveProfile(
-  name: string,
-  prevName: string | null,
-  options: LaunchOptions,
-  hookBuilder: HookRow[],
-): Promise<ChatProfile> {
-  return unwrap(await commands.saveProfile(name, prevName, options, hookBuilder));
-}
-
-export async function deleteProfile(name: string): Promise<void> {
-  unwrap(await commands.deleteProfile(name));
-}
-
-export async function exportProfiles(path: string): Promise<void> {
-  unwrap(await commands.exportProfiles(path));
-}
-
-export async function importProfiles(path: string): Promise<number> {
-  return unwrap(await commands.importProfiles(path));
-}
-
-export async function runHealthChecks(): Promise<HealthCheck[]> {
-  return unwrap(await commands.runHealthChecks());
-}
-
-export async function listBackgroundAgents(): Promise<string> {
-  return unwrap(await commands.listBackgroundAgents());
-}
-
-export async function launchBackgroundAgent(prompt: string): Promise<string> {
-  return unwrap(await commands.launchBackgroundAgent(prompt));
 }

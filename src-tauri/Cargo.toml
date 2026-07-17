@@ -28,7 +28,6 @@ specta = { version = "=2.0.0-rc.22", features = ["serde_json"] }
 specta-typescript = "=0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 uuid = { version = "1", features = ["v4"] }
-rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-dialog = "2"
 regex = "1"
 

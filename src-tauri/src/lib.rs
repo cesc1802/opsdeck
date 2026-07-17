@@ -1,11 +1,8 @@
 mod commands;
-mod db;
 mod export;
-mod health;
 mod jobs;
 mod parser;
 mod pricing;
-mod profiles;
 mod state;
 mod stats;
 mod watcher;
@@ -33,14 +30,6 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             jobs::commands::list_completions,
             jobs::commands::validate_dir,
             jobs::commands::validate_launch_options,
-            profiles::list_profiles,
-            profiles::save_profile,
-            profiles::delete_profile,
-            profiles::export_profiles,
-            profiles::import_profiles,
-            health::run_health_checks,
-            health::list_background_agents,
-            health::launch_background_agent,
         ])
         .events(collect_events![watcher::SessionsChanged, jobs::JobsChanged])
 }
@@ -72,21 +61,6 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
-            // Profiles live in the app-data dir; a failed open degrades to
-            // "database unavailable" command errors instead of aborting.
-            use tauri::Manager;
-            match app.path().app_data_dir() {
-                Ok(dir) => {
-                    if let Err(e) = app
-                        .state::<state::AppState>()
-                        .db
-                        .init(&dir.join("opsdeck.db"))
-                    {
-                        eprintln!("[opsdeck] db init failed: {e}");
-                    }
-                }
-                Err(e) => eprintln!("[opsdeck] no app data dir: {e}"),
-            }
             watcher::spawn(app.handle().clone());
             Ok(())
         })

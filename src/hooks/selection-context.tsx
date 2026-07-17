@@ -9,12 +9,11 @@ import {
 import type { LaunchOptions } from "@/lib/bindings";
 
 /** What the main pane shows: history session, new-chat form, live chat,
- * the configuration center, or workspace stats. */
+ * or workspace stats. */
 export type MainMode =
   | { kind: "session" }
   | { kind: "new-chat"; initial?: Partial<LaunchOptions> }
   | { kind: "chat"; jobId: string }
-  | { kind: "config" }
   | { kind: "stats" };
 
 interface Selection {
@@ -25,7 +24,6 @@ interface Selection {
   selectSession: (sessionId: string) => void;
   openNewChat: (initial?: Partial<LaunchOptions>) => void;
   openChat: (jobId: string) => void;
-  openConfig: () => void;
   openStats: () => void;
 }
 
@@ -82,10 +80,6 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     setMode({ kind: "chat", jobId });
     persistActiveJob(jobId);
   }, []);
-  const openConfig = useCallback(() => {
-    setMode({ kind: "config" });
-    persistActiveJob(null);
-  }, []);
   const openStats = useCallback(() => {
     setMode({ kind: "stats" });
     persistActiveJob(null);
@@ -100,7 +94,6 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
       selectSession,
       openNewChat,
       openChat,
-      openConfig,
       openStats,
     }),
     [
@@ -111,7 +104,6 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
       selectSession,
       openNewChat,
       openChat,
-      openConfig,
       openStats,
     ],
   );

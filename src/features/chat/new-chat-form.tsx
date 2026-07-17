@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,19 +27,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { ChatProfile, JobSummary, LaunchOptions } from "@/lib/bindings";
+import type { JobSummary, LaunchOptions } from "@/lib/bindings";
 import {
   createJob,
   fetchChatConfig,
-  fetchProfiles,
   fetchProjects,
-  saveProfile,
   validateDir,
   validateLaunchOptions,
 } from "@/lib/ipc";
 import { queryKeys } from "@/lib/query-keys";
 import { t } from "@/lib/i18n";
-import { hooksJsonToRows } from "@/features/config/builder-model";
 import { cn } from "@/lib/utils";
 import { CheckboxRow, Field } from "./form-fields";
 import {
@@ -94,19 +91,11 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
   // equals a project path would immediately derive back to that project.
   const [customPicked, setCustomPicked] = useState(false);
   const [bypassOpen, setBypassOpen] = useState(false);
-  const [loadedProfile, setLoadedProfile] = useState<string | null>(null);
-  const [profileName, setProfileName] = useState("");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const queryClient = useQueryClient();
 
   const { data: config } = useQuery({
     queryKey: queryKeys.chatConfig,
     queryFn: fetchChatConfig,
     staleTime: Infinity,
-  });
-  const { data: profiles } = useQuery({
-    queryKey: queryKeys.profiles,
-    queryFn: fetchProfiles,
   });
   // Same key as the sidebar; TanStack dedupes the fetch.
   const { data: projects } = useQuery({
@@ -187,43 +176,6 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
     }
   }
 
-  function applyProfile(profile: ChatProfile) {
-    setLoadedProfile(profile.name);
-    // Let the loaded cwd derive its own picker entry.
-    setCustomPicked(false);
-    setOptions(profile.options);
-    setListText({
-      allowed_tools: listToText(profile.options.allowed_tools),
-      disallowed_tools: listToText(profile.options.disallowed_tools),
-      mcp_configs: listToText(profile.options.mcp_configs),
-      plugin_dirs: listToText(profile.options.plugin_dirs),
-    });
-    toast.success(t("chat.form.profileLoaded"));
-  }
-
-  async function handleSaveProfile() {
-    const name = profileName.trim();
-    if (!name) return;
-    setSavingProfile(true);
-    try {
-      await saveProfile(
-        name,
-        null,
-        finalOptions,
-        hooksJsonToRows(finalOptions.hooks_json) ?? [],
-      );
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profiles });
-      setProfileName("");
-      toast.success(t("chat.form.profileSaved"));
-    } catch (error) {
-      toast.error(t("chat.form.profileSaveFailed"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setSavingProfile(false);
-    }
-  }
-
   async function handleSubmit() {
     setSubmitting(true);
     try {
@@ -252,47 +204,6 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
       <h2 className="text-lg font-semibold tracking-tight">
         {t("chat.form.title")}
       </h2>
-
-      <section className="dash-panel-muted flex flex-wrap items-center gap-2 p-3">
-        {profiles && profiles.length > 0 && (
-          <Select
-            value={loadedProfile ?? undefined}
-            onValueChange={(name) => {
-              const profile = profiles.find((p) => p.name === name);
-              if (profile) applyProfile(profile);
-            }}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder={t("chat.form.loadProfile")} />
-            </SelectTrigger>
-            <SelectContent>
-              {profiles.map((profile) => (
-                <SelectItem key={profile.name} value={profile.name}>
-                  {profile.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <div className="flex flex-1 justify-end gap-2">
-          <Input
-            className="w-44 text-base"
-            placeholder={t("chat.form.profileNamePlaceholder")}
-            value={profileName}
-            onChange={(event) => setProfileName(event.target.value)}
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="self-center"
-            disabled={savingProfile || !profileName.trim()}
-            onClick={() => void handleSaveProfile()}
-          >
-            {t("chat.form.saveAsProfile")}
-          </Button>
-        </div>
-      </section>
 
       <section className="dash-panel space-y-4 p-4">
         <Field
@@ -573,38 +484,6 @@ export function NewChatForm({ initial, onCreated }: NewChatFormProps) {
                     ...prev,
                     plugin_dirs: event.target.value,
                   }))
-                }
-              />
-            </Field>
-
-            <Field
-              label={t("chat.form.agentsJson")}
-              htmlFor="chat-agents-json"
-              error={errors.agents_json}
-            >
-              <Textarea
-                id="chat-agents-json"
-                className="mono min-h-16 text-base"
-                aria-invalid={Boolean(errors.agents_json)}
-                value={options.agents_json ?? ""}
-                onChange={(event) =>
-                  set("agents_json", event.target.value || null)
-                }
-              />
-            </Field>
-
-            <Field
-              label={t("chat.form.hooksJson")}
-              htmlFor="chat-hooks-json"
-              error={errors.hooks_json}
-            >
-              <Textarea
-                id="chat-hooks-json"
-                className="mono min-h-16 text-base"
-                aria-invalid={Boolean(errors.hooks_json)}
-                value={options.hooks_json ?? ""}
-                onChange={(event) =>
-                  set("hooks_json", event.target.value || null)
                 }
               />
             </Field>

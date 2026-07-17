@@ -23,8 +23,6 @@ export function defaultLaunchOptions(): LaunchOptions {
     mcp_configs: [],
     strict_mcp_config: false,
     plugin_dirs: [],
-    agents_json: null,
-    hooks_json: null,
     setting_sources: [],
     append_system_prompt: null,
     settings_json: null,

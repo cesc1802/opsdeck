@@ -7,6 +7,5 @@ export const queryKeys = {
   jobs: ["jobs"] as const,
   chatConfig: ["chat-config"] as const,
   completions: (cwd: string) => ["completions", cwd] as const,
-  profiles: ["profiles"] as const,
   stats: ["stats"] as const,
 };

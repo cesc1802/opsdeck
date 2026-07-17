@@ -32,12 +32,11 @@ Backend (Rust/Tauri)              Frontend (React/TypeScript)
 | `parser/` | JSONL parsing: raw.rs, normalize.rs, meta.rs |
 | `state.rs` | Shared mutable state: metadata cache, project name cache |
 | `watcher.rs` | File change detection on `~/.claude/projects/` |
-| `profiles/` | Saved launch profiles (cwd, model, options, hooks) |
 | `pricing.rs` | Hardcoded model pricing rates |
 
 ### Key Types
 
-- **LaunchOptions**: Full chat configuration (cwd, prompt [optional/empty], model, tools, hooks, etc.)
+- **LaunchOptions**: Full chat configuration (cwd, prompt [optional/empty], model, tools, permission mode, raw settings JSON). Agents and hooks come from native `.claude/` config via `setting_sources`, not from OpsDeck.
 - **JobEventPayload**: Normalized event enum (SessionStarted, UserMessage, TextDelta, ToolUse, etc.)
 - **CompletionCatalog**: Lists of commands, skills, and agents discovered on disk
 - **SessionMeta**: Parsed session metadata (token counts, models, timestamps, cost)
@@ -53,7 +52,7 @@ Backend (Rust/Tauri)              Frontend (React/TypeScript)
 | `features/messages/` | Message display, syntax highlighting, find-bar |
 | `features/chat/` | Live chat: composer, slash completion, job display |
 | `features/inspector/` | Right panel: session metadata, token grid, overview |
-| `features/profiles/` | Profile editor: save/load launch configurations |
+| `features/stats/` | Workspace stats panel: totals, per-project, per-model |
 | `lib/` | Utilities: IPC wrappers (ipc.ts), hooks, i18n, query keys |
 | `components/` | Reusable UI: buttons, forms, theme, shell layout |
 

@@ -53,7 +53,9 @@ fn project_cwd(project_dir: &Path) -> Option<String> {
         if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
             continue;
         }
-        let Ok(file) = fs::File::open(&path) else { continue };
+        let Ok(file) = fs::File::open(&path) else {
+            continue;
+        };
         for line in BufReader::new(file).lines().take(10).flatten() {
             if let Some(cwd) = raw::parse_line(&line).and_then(|l| l.cwd) {
                 return Some(cwd);
@@ -107,9 +109,7 @@ fn session_files(project_dir: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(entries
         .flatten()
         .map(|entry| entry.path())
-        .filter(|path| {
-            path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("jsonl")
-        })
+        .filter(|path| path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("jsonl"))
         .collect())
 }
 
@@ -181,8 +181,7 @@ pub async fn list_projects(
         if !dir.is_dir() {
             continue;
         }
-        let Some(project_id) = dir.file_name().and_then(|n| n.to_str()).map(str::to_string)
-        else {
+        let Some(project_id) = dir.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
             continue;
         };
         let files = session_files(&dir).unwrap_or_default();
@@ -229,8 +228,16 @@ pub async fn list_sessions(
         .collect();
     // Newest first; ISO-8601 strings sort lexicographically.
     sessions.sort_by(|a, b| {
-        let a_key = a.ended_at.as_deref().or(a.started_at.as_deref()).unwrap_or("");
-        let b_key = b.ended_at.as_deref().or(b.started_at.as_deref()).unwrap_or("");
+        let a_key = a
+            .ended_at
+            .as_deref()
+            .or(a.started_at.as_deref())
+            .unwrap_or("");
+        let b_key = b
+            .ended_at
+            .as_deref()
+            .or(b.started_at.as_deref())
+            .unwrap_or("");
         b_key.cmp(a_key)
     });
     Ok(sessions)
@@ -313,6 +320,29 @@ pub async fn export_session(
     crate::export::render(&detail, format)
 }
 
+/// Reject file paths under `~/.claude` — that tree is read-only for OpsDeck,
+/// even for user-picked export destinations. Canonicalizes the target's
+/// parent so `..` segments or symlinks cannot dodge the prefix check; the
+/// file itself may not exist yet (export writes it).
+fn guard_claude_tree(path: &Path) -> Result<(), String> {
+    let Some(home) = dirs::home_dir() else {
+        return Ok(());
+    };
+    let claude = home.join(".claude");
+    let claude = claude.canonicalize().unwrap_or(claude);
+    let resolved = match (path.parent(), path.file_name()) {
+        (Some(parent), Some(file)) if !parent.as_os_str().is_empty() => parent
+            .canonicalize()
+            .map(|p| p.join(file))
+            .unwrap_or_else(|_| path.to_path_buf()),
+        _ => path.to_path_buf(),
+    };
+    if resolved.starts_with(&claude) || path.starts_with(&claude) {
+        return Err("refusing to write under ~/.claude".into());
+    }
+    Ok(())
+}
+
 /// Refuses ~/.claude, symlink targets, and missing parent directories,
 /// then writes. The symlink check closes the one hole the tree guard
 /// leaves: it canonicalizes the parent but re-joins the leaf name, so a
@@ -320,7 +350,7 @@ pub async fn export_session(
 /// wherever it points.
 fn write_export_impl(path: &str, content: &str) -> Result<(), String> {
     let target = crate::jobs::options::expand_path(path);
-    crate::profiles::guard_claude_tree(&target)?;
+    guard_claude_tree(&target)?;
     let is_symlink = target
         .symlink_metadata()
         .map(|m| m.file_type().is_symlink())
@@ -370,8 +400,7 @@ pub async fn get_stats(
         if !dir.is_dir() {
             continue;
         }
-        let Some(project_id) = dir.file_name().and_then(|n| n.to_str()).map(str::to_string)
-        else {
+        let Some(project_id) = dir.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
             continue;
         };
         let sessions: Vec<SessionMeta> = session_files(&dir)

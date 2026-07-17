@@ -154,82 +154,6 @@ async validateDir(path: string) : Promise<boolean> {
  */
 async validateLaunchOptions(options: LaunchOptions) : Promise<FieldError[]> {
     return await TAURI_INVOKE("validate_launch_options", { options });
-},
-async listProfiles() : Promise<Result<ChatProfile[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("list_profiles") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async saveProfile(name: string, prevName: string | null, options: LaunchOptions, hookBuilder: HookRow[]) : Promise<Result<ChatProfile, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("save_profile", { name, prevName, options, hookBuilder }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async deleteProfile(name: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("delete_profile", { name }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Write the interchange payload to a user-picked path (dialog plugin on the
- * frontend supplies the path).
- */
-async exportProfiles(path: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("export_profiles", { path }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Read and merge an interchange payload; returns how many profiles were
- * imported.
- */
-async importProfiles(path: string) : Promise<Result<number, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("import_profiles", { path }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async runHealthChecks() : Promise<Result<HealthCheck[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("run_health_checks") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Raw JSON from `claude agents --json --all`; the UI parses and renders each
- * agent in a mono disclosure.
- */
-async listBackgroundAgents() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("list_background_agents") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async launchBackgroundAgent(prompt: string) : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("launch_background_agent", { prompt }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
 }
 }
 
@@ -259,13 +183,7 @@ export type Block = { type: "text"; text: string } | { type: "thinking"; thinkin
  * Static vocabulary served to the UI so form options never drift from the
  * backend validators.
  */
-export type ChatConfig = { model_suggestions: string[]; efforts: string[]; permission_modes: string[]; setting_sources: string[]; hook_events: string[]; presets: PermissionPreset[] }
-export type ChatProfile = { name: string; options: LaunchOptions; 
-/**
- * Hook builder rows kept alongside the compiled `options.hooks_json` so
- * editing never loses row structure.
- */
-hook_builder: HookRow[]; created_at_ms: number; updated_at_ms: number }
+export type ChatConfig = { model_suggestions: string[]; efforts: string[]; permission_modes: string[]; setting_sources: string[]; presets: PermissionPreset[] }
 /**
  * Slash-completion names available before the CLI's `init` event arrives:
  * user- and project-scope custom commands, skills, and agents discovered on
@@ -279,12 +197,6 @@ export type CompletionCatalog = {
 commands: string[]; agents: string[] }
 export type ExportFormat = "md" | "json" | "html"
 export type FieldError = { field: string; message: string }
-export type HealthCheck = { name: string; ok: boolean; detail: string; duration_ms: number }
-/**
- * One row from the hook builder. Validate-only: commands are never executed
- * by OpsDeck, only compiled into the temp settings file.
- */
-export type HookRow = { event: string; matcher: string | null; command: string; timeout: number; enabled: boolean }
 /**
  * Wire event delivered over an attach channel: buffered replay first, then
  * live tail. Clients dedupe by `seq`.
@@ -331,18 +243,11 @@ export type LaunchOptions = { name: string | null; cwd: string;
  * after spawn when non-empty (never a CLI arg). Empty means the user
  * types the first message in the composer.
  */
-prompt: string; model: string | null; effort: string | null; permission_mode: string | null; max_budget_usd: number | null; worktree: boolean; worktree_name: string | null; resume_session_id: string | null; fork_session: boolean; allowed_tools: string[]; disallowed_tools: string[]; mcp_configs: string[]; strict_mcp_config: boolean; plugin_dirs: string[]; 
+prompt: string; model: string | null; effort: string | null; permission_mode: string | null; max_budget_usd: number | null; worktree: boolean; worktree_name: string | null; resume_session_id: string | null; fork_session: boolean; allowed_tools: string[]; disallowed_tools: string[]; mcp_configs: string[]; strict_mcp_config: boolean; plugin_dirs: string[]; setting_sources: string[]; append_system_prompt: string | null; 
 /**
- * JSON object: agent name -> { description, prompt, ... }.
- */
-agents_json: string | null; 
-/**
- * JSON array of hook rows: { event, matcher?, command, timeout, enabled }.
- */
-hooks_json: string | null; setting_sources: string[]; append_system_prompt: string | null; 
-/**
- * Raw settings JSON object (power-user escape hatch), merged with hooks
- * into the temp `--settings` file.
+ * Raw settings JSON object (power-user escape hatch), written to the
+ * temp `--settings` file. Agents and hooks come from native `.claude/`
+ * config via `setting_sources`, not from OpsDeck.
  */
 settings_json: string | null }
 export type Message = { 
