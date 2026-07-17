@@ -61,9 +61,10 @@ fn total_usage_and_cost(
     let mut anonymous: Vec<(Option<&str>, TokenUsage)> = Vec::new();
 
     for line in lines {
-        let Some(message) = &line.message else { continue };
-        let Some(usage) = message.usage.as_ref().map(super::normalize::usage_from_raw)
-        else {
+        let Some(message) = &line.message else {
+            continue;
+        };
+        let Some(usage) = message.usage.as_ref().map(super::normalize::usage_from_raw) else {
             continue;
         };
         let model = message.model.as_deref();
@@ -149,7 +150,11 @@ fn truncate_chars(text: &str, max_chars: usize) -> String {
 /// Clean one user-text candidate into a list-friendly preview line.
 pub fn clean_preview(text: &str) -> String {
     let mut out = text.to_string();
-    for tag in ["local-command-caveat", "local-command-stdout", "local-command-stderr"] {
+    for tag in [
+        "local-command-caveat",
+        "local-command-stdout",
+        "local-command-stderr",
+    ] {
         out = strip_span(&out, tag);
     }
     for tag in ["command-name", "command-message", "command-args"] {
@@ -186,9 +191,15 @@ fn preview_from_lines(lines: &[RawLine]) -> String {
         if line.line_type.as_deref() != Some("user") {
             continue;
         }
-        let Some(message) = &line.message else { continue };
-        let Some(content) = &message.content else { continue };
-        let Some(text) = user_text(content) else { continue };
+        let Some(message) = &line.message else {
+            continue;
+        };
+        let Some(content) = &message.content else {
+            continue;
+        };
+        let Some(text) = user_text(content) else {
+            continue;
+        };
         let cleaned = clean_preview(&text);
         if !cleaned.is_empty() {
             return cleaned;

@@ -86,7 +86,11 @@ pub struct Job {
 }
 
 impl Job {
-    pub fn new(summary: JobSummary, stdin: Option<ChildStdin>, settings_file: Option<PathBuf>) -> Self {
+    pub fn new(
+        summary: JobSummary,
+        stdin: Option<ChildStdin>,
+        settings_file: Option<PathBuf>,
+    ) -> Self {
         Self {
             summary,
             buffer: RingBuffer::new(RING_BUFFER_CAP),
@@ -135,7 +139,9 @@ impl Job {
                 summary.status = JobStatus::Running;
                 true
             }
-            JobEventPayload::TurnResult { cost_usd, usage, .. } => {
+            JobEventPayload::TurnResult {
+                cost_usd, usage, ..
+            } => {
                 if let Some(cost) = cost_usd {
                     summary.cost_usd = Some(*cost);
                 }
@@ -196,7 +202,7 @@ impl JobRegistry {
             .values()
             .map(|job| job.lock().expect("job poisoned").summary.clone())
             .collect();
-        summaries.sort_by(|a, b| b.created_at_ms.cmp(&a.created_at_ms));
+        summaries.sort_by_key(|summary| std::cmp::Reverse(summary.created_at_ms));
         summaries
     }
 
@@ -350,7 +356,11 @@ mod tests {
         registry.insert(a);
         registry.insert(b);
 
-        let ids: Vec<String> = registry.summaries().iter().map(|s| s.job_id.clone()).collect();
+        let ids: Vec<String> = registry
+            .summaries()
+            .iter()
+            .map(|s| s.job_id.clone())
+            .collect();
         assert_eq!(ids, vec!["b".to_string(), "a".to_string()]);
 
         registry.kill_all();

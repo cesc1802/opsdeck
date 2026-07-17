@@ -32,9 +32,7 @@ fn pair_re() -> &'static Regex {
 
 fn bearer_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=\-]+").expect("bearer regex")
-    })
+    RE.get_or_init(|| Regex::new(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=\-]+").expect("bearer regex"))
 }
 
 /// JSON object keys whose string values are masked outright, catching

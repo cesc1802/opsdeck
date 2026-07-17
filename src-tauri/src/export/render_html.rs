@@ -130,8 +130,15 @@ pub fn render(detail: &SessionDetail) -> String {
     out.push_str("</dl>\n");
 
     for message in &detail.messages {
-        let role_class = if message.role == "user" { "user" } else { "assistant" };
-        out.push_str(&format!("<article class=\"msg {role_class}\">\n<header><span>{}</span>", escape(&message.role)));
+        let role_class = if message.role == "user" {
+            "user"
+        } else {
+            "assistant"
+        };
+        out.push_str(&format!(
+            "<article class=\"msg {role_class}\">\n<header><span>{}</span>",
+            escape(&message.role)
+        ));
         if let Some(ts) = &message.timestamp {
             out.push_str(&format!("<span>{}</span>", escape(ts)));
         }
@@ -155,11 +162,15 @@ pub fn render(detail: &SessionDetail) -> String {
                         "<div class=\"tool-name\">Tool: {}</div>\n",
                         escape(name)
                     ));
-                    let pretty = serde_json::to_string_pretty(input)
-                        .unwrap_or_else(|_| input.to_string());
+                    let pretty =
+                        serde_json::to_string_pretty(input).unwrap_or_else(|_| input.to_string());
                     out.push_str(&format!("<pre>{}</pre>\n", escape(&pretty)));
                     if let Some(info) = result {
-                        let class = if info.is_error { " class=\"error\"" } else { "" };
+                        let class = if info.is_error {
+                            " class=\"error\""
+                        } else {
+                            ""
+                        };
                         out.push_str(&format!(
                             "<pre{class}>{}</pre>\n",
                             escape(&clamp_result(&info.content))
@@ -201,10 +212,9 @@ mod tests {
     #[test]
     fn escapes_transcript_content_including_script_tags() {
         let mut detail = sample_detail();
-        detail.messages[0].blocks =
-            vec![crate::parser::normalize::Block::Text {
-                text: "<script>alert('pwned')</script>".into(),
-            }];
+        detail.messages[0].blocks = vec![crate::parser::normalize::Block::Text {
+            text: "<script>alert('pwned')</script>".into(),
+        }];
         let html = render(&detail);
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;alert(&#39;pwned&#39;)&lt;/script&gt;"));

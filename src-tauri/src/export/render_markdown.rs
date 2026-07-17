@@ -116,8 +116,8 @@ pub fn render(detail: &SessionDetail) -> String {
                 } => {
                     out.push_str(&format!("### Tool: {name}\n\n"));
                     out.push_str("**Input**\n\n");
-                    let pretty = serde_json::to_string_pretty(input)
-                        .unwrap_or_else(|_| input.to_string());
+                    let pretty =
+                        serde_json::to_string_pretty(input).unwrap_or_else(|_| input.to_string());
                     fenced(&mut out, "json", &pretty);
                     if let Some(info) = result {
                         if info.is_error {
@@ -182,7 +182,10 @@ mod tests {
     fn embedded_backtick_fences_cannot_escape_the_code_block() {
         let mut out = String::new();
         fenced(&mut out, "", "inner\n```\nescape attempt\n```");
-        assert!(out.starts_with("````\n"), "fence should outgrow content: {out}");
+        assert!(
+            out.starts_with("````\n"),
+            "fence should outgrow content: {out}"
+        );
         assert!(out.trim_end().ends_with("````"));
     }
 

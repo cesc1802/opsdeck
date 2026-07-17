@@ -87,11 +87,7 @@ fn result_content_to_string(content: &Value) -> String {
         Value::String(s) => s.clone(),
         Value::Array(items) => items
             .iter()
-            .filter_map(|item| {
-                item.get("text")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-            })
+            .filter_map(|item| item.get("text").and_then(Value::as_str).map(str::to_string))
             .collect::<Vec<_>>()
             .join("\n"),
         Value::Null => String::new(),
@@ -104,7 +100,10 @@ struct PendingResult {
     content: String,
 }
 
-fn content_blocks(content: &Value, pending_results: &mut HashMap<String, PendingResult>) -> Vec<Block> {
+fn content_blocks(
+    content: &Value,
+    pending_results: &mut HashMap<String, PendingResult>,
+) -> Vec<Block> {
     match content {
         Value::String(text) => {
             if text.is_empty() {

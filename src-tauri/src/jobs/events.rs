@@ -79,7 +79,10 @@ fn clamp(text: &str) -> String {
 }
 
 fn str_field(v: &Value, key: &str) -> String {
-    v.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
+    v.get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 /// String array field, empty when absent or wrongly typed (older CLIs may
@@ -286,10 +289,7 @@ mod tests {
         assert_eq!(model, "claude-sonnet-5");
         assert_eq!(cwd, "/tmp/demo");
         assert_eq!(tools, &["Bash".to_string(), "Read".to_string()]);
-        assert_eq!(
-            slash_commands,
-            &["compact".to_string(), "cook".to_string()]
-        );
+        assert_eq!(slash_commands, &["compact".to_string(), "cook".to_string()]);
         assert_eq!(agents, &["code-reviewer".to_string()]);
     }
 
@@ -331,7 +331,10 @@ mod tests {
             .iter()
             .find(|e| matches!(e, JobEventPayload::ToolResult { .. }))
             .unwrap();
-        if let JobEventPayload::ToolResult { content, is_error, .. } = tool_result {
+        if let JobEventPayload::ToolResult {
+            content, is_error, ..
+        } = tool_result
+        {
             assert!(!is_error);
             assert_eq!(content, "file-a\nfile-b");
         }
@@ -341,8 +344,12 @@ mod tests {
     fn malformed_and_unknown_lines_become_notices() {
         let events = bridge_all("this is not json\n{\"type\":\"mystery_event\",\"x\":1}");
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0], JobEventPayload::Notice { message } if message.contains("unparseable")));
-        assert!(matches!(&events[1], JobEventPayload::Notice { message } if message.contains("mystery_event")));
+        assert!(
+            matches!(&events[0], JobEventPayload::Notice { message } if message.contains("unparseable"))
+        );
+        assert!(
+            matches!(&events[1], JobEventPayload::Notice { message } if message.contains("mystery_event"))
+        );
     }
 
     #[test]

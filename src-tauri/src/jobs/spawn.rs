@@ -66,12 +66,7 @@ fn write_stdin_line(job: &mut Job, line: &str) -> Result<(), String> {
 /// Drain one stdio pipe into the job: bridge each line, buffer + fan out,
 /// notify on summary changes. Runs on a dedicated thread — never on the
 /// command thread — so pipes cannot deadlock.
-fn pump_lines(
-    reader: impl Read,
-    job: &Arc<Mutex<Job>>,
-    stderr: bool,
-    on_change: &dyn Fn(),
-) {
+fn pump_lines(reader: impl Read, job: &Arc<Mutex<Job>>, stderr: bool, on_change: &dyn Fn()) {
     for line in BufReader::new(reader).lines() {
         let Ok(line) = line else { break };
         let payloads: Vec<JobEventPayload> = if stderr {
