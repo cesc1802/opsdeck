@@ -68,7 +68,7 @@ opsdeck/
 │   │   ├── sessions/        # Session list, filters, rows
 │   │   ├── messages/        # Message view, blocks, find-bar
 │   │   ├── chat/            # Live chat (composer, slash completion, job display)
-│   │   ├── profiles/        # Profile editor and launcher
+│   │   ├── stats/           # Workspace stats panel
 │   │   └── inspector/       # Context panel (token grid, tabs)
 │   ├── hooks/               # Custom React hooks (queries, state)
 │   ├── lib/
@@ -136,6 +136,27 @@ opsdeck/
 | `pnpm format` | Auto-format code with Prettier |
 | `pnpm build` | Build Vite bundle to `dist/` |
 | `pnpm tauri build` | Build macOS app bundle to `src-tauri/target/release/bundle/` |
+
+## Release
+
+Releases are built by GitHub Actions when a `v*` tag pointing to a `master` commit is pushed. The pipeline (`.github/workflows/release.yml` + per-platform `build-linux.yml` / `build-macos.yml` / `build-windows.yml`) creates a draft GitHub Release, builds Windows (`.msi`, `-setup.exe`), macOS universal (`.dmg`), and Linux (`.deb`, `.rpm`, `.AppImage`) bundles, and publishes the release only when all three builds succeed.
+
+To cut a release:
+
+```bash
+# 1. Bump the version in package.json, src-tauri/tauri.conf.json, and src-tauri/Cargo.toml (keep all three in sync)
+# 2. Commit to master, then tag and push:
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Guard rails: the pipeline stops (no release created) if the tag commit is not on `master`, or if the tag does not match the version in `src-tauri/tauri.conf.json`.
+
+Caveats:
+
+- **Unsigned binaries**: macOS builds are not notarized (right-click → Open, or `xattr -cr /Applications/OpsDeck.app`); Windows builds trigger SmartScreen ("More info" → "Run anyway"). Code signing is a follow-up once certificates exist.
+- **Retry a failed release**: delete the draft/partial release and the tag on GitHub, then re-tag. Pre-release tags like `v0.1.0-rc1` also match `v*` but will fail the version gate unless `tauri.conf.json` matches.
+- **Publish step failure**: if all builds succeed but the final publish call fails, the draft release (with all artifacts) is kept — publish it manually from the GitHub Releases UI.
 
 ## Recently Implemented
 
